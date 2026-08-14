@@ -1,0 +1,13 @@
+{
+  "name": "@veriframe/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Next.js web app — scaffolded here, implemented in Phase 2.",
+  "scripts": {
+    "dev": "echo \"apps/web not implemented yet (Phase 2)\"",
+    "build": "echo \"apps/web not implemented yet (Phase 2)\"",
+    "typecheck": "echo \"apps/web not implemented yet (Phase 2)\"",
+    "lint": "echo \"apps/web not implemented yet (Phase 2)\"",
+    "test": "echo \"apps/web not implemented yet (Phase 2)\""
+  }
+}

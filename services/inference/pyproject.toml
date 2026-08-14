@@ -1,0 +1,9 @@
+[project]
+name = "veriframe-inference"
+version = "0.0.0"
+description = "FastAPI inference service — scaffolded here, implemented in Phase 1."
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["app"]

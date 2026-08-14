@@ -1,0 +1,12 @@
+{
+  "name": "@veriframe/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared React components between web and extension — scaffolded here, filled in starting Phase 2.",
+  "scripts": {
+    "build": "echo \"packages/ui not implemented yet\"",
+    "typecheck": "echo \"packages/ui not implemented yet\"",
+    "lint": "echo \"packages/ui not implemented yet\"",
+    "test": "echo \"packages/ui not implemented yet\""
+  }
+}

@@ -1,0 +1,45 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build outputs
+dist/
+build/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# media / model artifacts (never commit real media or weights)
+*.onnx
+*.pt
+*.pth
+uploads/
+tmp/
+
+# datasets (license-gated, never commit)
+datasets/
+eval/data/
+
+# editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

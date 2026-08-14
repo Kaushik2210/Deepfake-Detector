@@ -1,0 +1,5 @@
+{
+  "_comment": "Placeholder. Populated in Phase 3 from the eval harness (temperature scaling fit on a held-out validation split, plus per-stream fusion weights derived from validation AUC). No values here are real until then.",
+  "temperature": {},
+  "stream_weights": {}
+}

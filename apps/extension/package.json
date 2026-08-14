@@ -1,0 +1,13 @@
+{
+  "name": "@veriframe/extension",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Chrome MV3 extension (WXT) — scaffolded here, implemented in Phase 5.",
+  "scripts": {
+    "dev": "echo \"apps/extension not implemented yet (Phase 5)\"",
+    "build": "echo \"apps/extension not implemented yet (Phase 5)\"",
+    "typecheck": "echo \"apps/extension not implemented yet (Phase 5)\"",
+    "lint": "echo \"apps/extension not implemented yet (Phase 5)\"",
+    "test": "echo \"apps/extension not implemented yet (Phase 5)\""
+  }
+}
