@@ -98,6 +98,50 @@ def test_heavier_compression_widens_uncertainty(jpeg_at_quality) -> None:
 
 
 @pytest.mark.model
+def test_every_face_gets_its_own_band_interval_and_heatmap(real_face_jpeg: bytes) -> None:
+    report = analyze_image(real_face_jpeg, mime_type="image/jpeg")
+
+    assert len(report.faces) >= 1
+    for face in report.faces:
+        assert face.band == score_to_band(face.score).id
+        lo, hi = face.uncertainty
+        assert 0.0 <= lo <= face.score <= hi <= 1.0
+        assert face.heatmap_url, f"face {face.index} reported a score with no heatmap"
+        assert face.box.w > 0 and face.box.h > 0
+
+
+@pytest.mark.model
+def test_face_indices_are_sequential_from_one(real_face_jpeg: bytes) -> None:
+    """Indices must match the numbers drawn on the face map."""
+    report = analyze_image(real_face_jpeg, mime_type="image/jpeg")
+    assert [f.index for f in report.faces] == list(range(1, len(report.faces) + 1))
+
+
+@pytest.mark.model
+def test_report_carries_a_face_map_when_faces_are_found(real_face_jpeg: bytes) -> None:
+    report = analyze_image(real_face_jpeg, mime_type="image/jpeg")
+    artifacts = [a for s in report.streams for a in s.artifacts]
+    assert any(a.type == "face_map" for a in artifacts)
+
+
+@pytest.mark.model
+def test_conclusion_counts_match_the_faces_reported(real_face_jpeg: bytes) -> None:
+    report = analyze_image(real_face_jpeg, mime_type="image/jpeg")
+
+    assert report.conclusion is not None
+    assert report.conclusion.faces_analyzed == len(report.faces)
+
+
+def test_no_face_still_produces_a_conclusion(no_face_png: bytes) -> None:
+    report = analyze_image(no_face_png, mime_type="image/png")
+
+    assert report.faces == []
+    assert report.conclusion is not None
+    assert report.conclusion.faces_analyzed == 0
+    assert "could not find" in report.conclusion.detail.lower()
+
+
+@pytest.mark.model
 def test_model_version_is_pinned_to_a_commit(real_face_jpeg: bytes) -> None:
     """Reported numbers must trace to an exact checkpoint."""
     report = analyze_image(real_face_jpeg, mime_type="image/jpeg")

@@ -95,6 +95,68 @@ def mean_luma(image_bgr: np.ndarray) -> float:
     return float(gray.mean())
 
 
+def assess_face(
+    face_crop_bgr: np.ndarray,
+    face: DetectedFace,
+    jpeg_quality: int | None = None,
+) -> list[tuple[str, float]]:
+    """Penalties for one face, measured on that face's own crop.
+
+    A group photo mixes a 200px front-row face with a 30px face at the back.
+    Judging both by the image-level measurements would report the same
+    confidence for two results that deserve very different confidence, so each
+    face is measured independently.
+    """
+    settings = get_settings()
+    penalties: list[tuple[str, float]] = []
+
+    if face.h < settings.min_face_px:
+        # Scale the penalty with how far under the threshold the face is: a 60px
+        # face is a mild concern, a 20px face is barely evidence at all.
+        severity = max(0.35, face.h / settings.min_face_px)
+        penalties.append(
+            (
+                f"This face is only {face.w}x{face.h}px, below the "
+                f"{settings.min_face_px}px the classifier expects. The crop is "
+                "upsampled beyond training resolution, so this score is weak evidence.",
+                round(severity, 3),
+            )
+        )
+
+    if face_crop_bgr.size > 0:
+        blur = blur_score(face_crop_bgr)
+        if blur < settings.blur_threshold:
+            penalties.append(
+                (
+                    f"This face is blurred (Laplacian variance {blur:.1f} < "
+                    f"{settings.blur_threshold:.0f}), which suppresses the "
+                    "high-frequency cues the detector relies on.",
+                    0.7,
+                )
+            )
+
+        luma = mean_luma(face_crop_bgr)
+        if luma < settings.min_mean_luma or luma > settings.max_mean_luma:
+            penalties.append(
+                (
+                    f"This face is poorly exposed (mean luma {luma:.1f}, expected "
+                    f"{settings.min_mean_luma:.0f}-{settings.max_mean_luma:.0f}).",
+                    0.8,
+                )
+            )
+
+    if jpeg_quality is not None and jpeg_quality < settings.min_jpeg_quality:
+        penalties.append(
+            (
+                f"The source image is heavily compressed (~JPEG quality {jpeg_quality}), "
+                "which destroys the traces this detector depends on.",
+                0.6,
+            )
+        )
+
+    return penalties
+
+
 def assess(
     image_bgr: np.ndarray,
     faces: list[DetectedFace],

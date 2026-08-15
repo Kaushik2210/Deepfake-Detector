@@ -1,5 +1,7 @@
 import { REPORT_FOOTER_DISCLAIMER, type AnalysisReport } from "@veriframe/core";
 
+import { ConclusionPanel } from "./ConclusionPanel";
+import { FaceFindings } from "./FaceFindings";
 import { ScoreBand } from "./ScoreBand";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -16,10 +18,20 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function ReportView({ report }: { report: AnalysisReport }) {
   const { envelope } = report;
 
+  const faces = report.faces ?? [];
+
   return (
     <div className="space-y-5">
-      <Section title="Assessment">
+      {report.conclusion && <ConclusionPanel conclusion={report.conclusion} />}
+
+      <Section title={faces.length > 1 ? "Overall assessment" : "Assessment"}>
         <ScoreBand score={report.score} uncertainty={report.uncertainty} />
+        {faces.length > 1 && (
+          <p className="mt-3 text-sm text-slate-600">
+            This is the highest of the {faces.length} individual face scores, adjusted
+            for the caveats below. Each face is reported separately further down.
+          </p>
+        )}
       </Section>
 
       {/*
@@ -83,6 +95,22 @@ export function ReportView({ report }: { report: AnalysisReport }) {
 
                 <div className="space-y-3">
                   {stream.artifacts.map((artifact, index) => {
+                    if (artifact.type === "face_map") {
+                      return (
+                        <figure key={index}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={artifact.url}
+                            alt={artifact.label}
+                            className="w-full rounded border border-slate-200"
+                          />
+                          <figcaption className="mt-1 text-xs text-slate-500">
+                            {artifact.label}. Box colour matches each face&rsquo;s band.
+                          </figcaption>
+                        </figure>
+                      );
+                    }
+
                     if (artifact.type === "heatmap") {
                       return (
                         <figure key={index}>
@@ -120,6 +148,8 @@ export function ReportView({ report }: { report: AnalysisReport }) {
           </div>
         )}
       </Section>
+
+      <FaceFindings faces={faces} />
 
       <Section title="Input characteristics">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">

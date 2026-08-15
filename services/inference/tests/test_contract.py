@@ -53,10 +53,14 @@ def _zod_object_fields(source: str, schema_name: str) -> set[str]:
 
 @pytest.fixture(scope="module")
 def report_source() -> str:
-    path = _CORE_SCHEMAS / "analysis-report.ts"
-    if not path.is_file():
-        pytest.skip(f"packages/core not available at {path}")
-    return path.read_text(encoding="utf-8")
+    """Concatenates the schema modules, since they were split to avoid a cycle."""
+    parts = []
+    for name in ("analysis-report.ts", "envelope.ts", "faces.ts"):
+        path = _CORE_SCHEMAS / name
+        if not path.is_file():
+            pytest.skip(f"packages/core not available at {path}")
+        parts.append(path.read_text(encoding="utf-8"))
+    return "\n".join(parts)
 
 
 @pytest.mark.parametrize(

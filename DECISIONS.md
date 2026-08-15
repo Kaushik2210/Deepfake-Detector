@@ -2,6 +2,28 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-08-15 — Group photos: the maximum face score needed a multiplicity correction
+
+Reporting the highest face score as the image score has a defect that shows up precisely on group photos. Every face tested is another opportunity for a high score to appear by chance, so an eight-person photo has many more chances to produce one than a portrait. Left uncorrected, group photos would score systematically higher than solo photos for reasons unrelated to manipulation — and this detector already returns 0.71 on a genuine photograph, so the base rate of spurious highs is not negligible.
+
+`aggregate.py` keeps the maximum as the headline, because one manipulated face does mean the image is manipulated, but distinguishes three cases:
+
+- **One face elevated among several.** Penalised by a factor that shrinks as face count grows, floored at 0.55 so a crowd scene never erases a real signal. This is the face-swap shape, but also the shape chance produces.
+- **Every face elevated.** No multiplicity penalty, because coincidence does not explain a uniform result. Instead a caveat that a detector reacting identically to every face usually points at a whole-image cause — AI generation, filtering, unusual compression — rather than each person being edited separately.
+- **Some but not all elevated.** Reported as genuinely ambiguous, with the per-face detail left to distinguish real findings from faces that are merely small or badly lit.
+
+## 2026-08-15 — Each face carries its own envelope, not the image's
+
+A group photo mixes a 200px front-row face with a 30px face at the back. Judging both against image-level measurements would report identical confidence for two findings that deserve very different confidence. `assess_face` measures size, blur and exposure on each face's own crop, and the small-face penalty scales with how far under the threshold the face falls rather than being a flat cut.
+
+## 2026-08-15 — The conclusion is assembled from templates, not generated
+
+The plain-language summary is what most readers will actually read, which makes it the easiest place to accidentally state a verdict. It is built from fixed templates chosen by the face-count pattern, so its claims can be unit-tested and cannot drift into overclaiming. Tests assert that no phrasing across every reachable pattern resolves to "is fake" or equivalent, that a clean result still says detectors miss things, and that the advice points at provenance — which beats any statistical detector.
+
+## 2026-08-15 — Schema modules split to break a cycle
+
+`FaceFinding` needs `EnvelopePenalty`, and `AnalysisReport` needs `FaceFinding`. Keeping the penalty schema in `analysis-report.ts` would have made the two modules circular, which breaks at runtime for Zod values even though TypeScript tolerates it at type level. `envelope.ts` now holds the penalty and envelope schemas and both import from it.
+
 ## 2026-08-15 — Expiry and user deletion are deliberately different
 
 Two retention paths, because they answer different questions. The TTL sweep deletes the stored media but keeps the job row and the perceptual hash, so the user can still read the report they were given and a repeat upload can be recognised without retaining the image. User-initiated deletion removes everything including the hash.

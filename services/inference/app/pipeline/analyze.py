@@ -11,8 +11,10 @@ import numpy as np
 from app.bands import report_footer_disclaimer, score_to_band
 from app.config import get_settings
 from app.models.registry import get_spatial_model
+from app.pipeline import conclusion as conclusion_mod
 from app.pipeline import envelope as envelope_mod
-from app.pipeline import gradcam, spatial
+from app.pipeline import face_map, gradcam, spatial
+from app.pipeline.aggregate import aggregate
 from app.pipeline.faces import crop_face, detect_faces
 from app.pipeline.phash import phash
 from app.schemas import (
@@ -20,6 +22,9 @@ from app.schemas import (
     Envelope,
     EnvelopeFactors,
     EnvelopePenalty,
+    FaceBox,
+    FaceFinding,
+    FaceMapArtifact,
     HeatmapArtifact,
     MediaMeta,
     NoteArtifact,
@@ -47,6 +52,11 @@ def decode_image(raw: bytes) -> np.ndarray:
     if image is None:
         raise DecodeError("could not decode the uploaded bytes as an image")
     return image
+
+
+def _apply_confidence(raw_score: float, confidence: float) -> float:
+    """Shrink toward 0.5 in proportion to how much we distrust the reading."""
+    return 0.5 + (raw_score - 0.5) * confidence
 
 
 def _uncertainty_band(score: float, spread: float, confidence: float) -> tuple[float, float]:
@@ -78,76 +88,12 @@ def analyze_image(
 
     faces = detect_faces(image_bgr)
     assessment = envelope_mod.assess(image_bgr, faces, raw_bytes=raw)
-    confidence = assessment.confidence
 
     model_versions: dict[str, str] = {"face_detector": "YuNet (OpenCV zoo, MIT)"}
     streams: list[StreamResult] = []
+    findings: list[FaceFinding] = []
 
-    if faces:
-        spatial_model = get_spatial_model()
-        model_versions["spatial"] = spatial_model.version_string
-
-        crops_bgr = [crop_face(image_bgr, face) for face in faces]
-        crops_rgb = [cv2.cvtColor(crop, cv2.COLOR_BGR2RGB) for crop in crops_bgr]
-        boxes = [(f.x, f.y, f.w, f.h) for f in faces]
-
-        face_scores = spatial.score_faces(crops_rgb, boxes, spatial_model)
-        raw_score, spread = spatial.aggregate_face_scores(face_scores)
-
-        # Heatmap for the face that drove the aggregate, so the evidence shown
-        # explains the number reported.
-        top_index = max(range(len(face_scores)), key=lambda i: face_scores[i].score)
-        heatmap_path = gradcam.generate_heatmap(crops_rgb[top_index], spatial_model)
-
-        artifacts: list = [
-            HeatmapArtifact(
-                label=(
-                    f"Grad-CAM over face {top_index + 1} of {len(face_scores)} "
-                    f"at {boxes[top_index]}"
-                ),
-                url=f"{settings.artifact_base_url}/{heatmap_path.name}",
-            )
-        ]
-
-        if len(face_scores) > 1:
-            per_face = ", ".join(
-                f"face {i + 1} at {fs.box}: {fs.score:.3f}"
-                for i, fs in enumerate(face_scores)
-            )
-            artifacts.append(
-                NoteArtifact(
-                    label="Per-face scores",
-                    detail=(
-                        f"{len(face_scores)} faces analysed. The image-level score is the "
-                        f"maximum across them. {per_face}"
-                    ),
-                )
-            )
-
-        artifacts.append(
-            NoteArtifact(
-                label="Uncertainty source",
-                detail=(
-                    f"Spread across {len(face_scores[top_index].variant_scores)} test-time "
-                    f"augmentations was {spread:.4f}. Phase 1 runs a single backbone, so this "
-                    "substitutes for ensemble disagreement and is a weaker signal — it "
-                    "measures sensitivity to flip and scale, not error decorrelation across "
-                    "architectures."
-                ),
-            )
-        )
-
-        streams.append(
-            StreamResult(
-                name="spatial",
-                score=round(raw_score, 4),
-                weight=_SPATIAL_WEIGHT,
-                models=[spatial_model.version_string],
-                artifacts=artifacts,
-            )
-        )
-    else:
-        raw_score, spread = _NO_EVIDENCE_SCORE, 0.0
+    if not faces:
         assessment.penalties.append(
             (
                 "No face was detected, so the spatial classifier could not run. This score "
@@ -156,17 +102,112 @@ def analyze_image(
             )
         )
         assessment.in_distribution = False
+
         confidence = assessment.confidence
-
-    # Shrink toward 0.5 in proportion to how much we distrust the input. A score we
-    # cannot stand behind should move toward "inconclusive", not stay confident.
-    if faces:
-        score = 0.5 + (raw_score - 0.5) * confidence
-    else:
         score = _NO_EVIDENCE_SCORE
+        lo, hi = _uncertainty_band(score, 0.0, confidence)
+        conclusion = conclusion_mod.build_no_face_conclusion()
+    else:
+        spatial_model = get_spatial_model()
+        model_versions["spatial"] = spatial_model.version_string
 
-    score = round(min(1.0, max(0.0, score)), 4)
-    lo, hi = _uncertainty_band(score, spread, confidence)
+        crops_bgr = [crop_face(image_bgr, face) for face in faces]
+        crops_rgb = [cv2.cvtColor(crop, cv2.COLOR_BGR2RGB) for crop in crops_bgr]
+        boxes = [(f.x, f.y, f.w, f.h) for f in faces]
+
+        face_scores = spatial.score_faces(crops_rgb, boxes, spatial_model)
+        jpeg_quality = envelope_mod.estimate_jpeg_quality(raw)
+
+        # Each face gets its own envelope, heatmap, and band. A back-row face
+        # scoring high is not the same finding as a front-row face scoring high,
+        # and the report should not flatten that difference.
+        for index, (face, crop_bgr, crop_rgb, result) in enumerate(
+            zip(faces, crops_bgr, crops_rgb, face_scores, strict=True), start=1
+        ):
+            face_penalties = envelope_mod.assess_face(crop_bgr, face, jpeg_quality)
+            face_confidence = 1.0
+            for _, factor in face_penalties:
+                face_confidence *= factor
+
+            face_score = round(_apply_confidence(result.score, face_confidence), 4)
+            face_lo, face_hi = _uncertainty_band(face_score, result.spread, face_confidence)
+
+            heatmap_path = gradcam.generate_heatmap(crop_rgb, spatial_model)
+
+            findings.append(
+                FaceFinding(
+                    index=index,
+                    box=FaceBox(x=face.x, y=face.y, w=face.w, h=face.h),
+                    score=face_score,
+                    band=score_to_band(face_score).id,  # type: ignore[arg-type]
+                    uncertainty=(face_lo, face_hi),
+                    detector_confidence=round(min(1.0, max(0.0, face.confidence)), 4),
+                    penalties=[
+                        EnvelopePenalty(reason=reason, factor=factor)
+                        for reason, factor in face_penalties
+                    ],
+                    heatmap_url=f"{settings.artifact_base_url}/{heatmap_path.name}",
+                )
+            )
+
+        aggregation = aggregate(
+            [f.score for f in findings], [r.spread for r in face_scores]
+        )
+        assessment.penalties.extend(aggregation.penalties)
+        if aggregation.penalties:
+            assessment.in_distribution = False
+
+        confidence = assessment.confidence
+        score = round(min(1.0, max(0.0, _apply_confidence(aggregation.score, confidence))), 4)
+        lo, hi = _uncertainty_band(score, aggregation.spread, confidence)
+
+        conclusion = conclusion_mod.build_conclusion(aggregation, score)
+
+        map_path = face_map.generate_face_map(
+            image_bgr, faces, [f.band for f in findings]
+        )
+
+        artifacts: list = [
+            FaceMapArtifact(
+                label=(
+                    f"{len(findings)} {'face' if len(findings) == 1 else 'faces'} analysed, "
+                    "numbered to match the per-face results"
+                ),
+                url=f"{settings.artifact_base_url}/{map_path.name}",
+            )
+        ]
+
+        top = max(findings, key=lambda f: f.score)
+        if top.heatmap_url:
+            artifacts.append(
+                HeatmapArtifact(
+                    label=f"Grad-CAM for face {top.index}, the highest-scoring face",
+                    url=top.heatmap_url,
+                )
+            )
+
+        artifacts.append(
+            NoteArtifact(
+                label="Uncertainty source",
+                detail=(
+                    f"Spread across {len(face_scores[0].variant_scores)} test-time "
+                    "augmentations. Phase 1 runs a single backbone, so this substitutes "
+                    "for ensemble disagreement and is a weaker signal — it measures "
+                    "sensitivity to flip and scale, not error decorrelation across "
+                    "architectures."
+                ),
+            )
+        )
+
+        streams.append(
+            StreamResult(
+                name="spatial",
+                score=round(aggregation.score, 4),
+                weight=_SPATIAL_WEIGHT,
+                models=[spatial_model.version_string],
+                artifacts=artifacts,
+            )
+        )
 
     now = datetime.now(UTC)
 
@@ -176,6 +217,8 @@ def analyze_image(
         band=score_to_band(score).id,  # type: ignore[arg-type]
         uncertainty=(lo, hi),
         streams=streams,
+        faces=findings,
+        conclusion=conclusion,  # type: ignore[arg-type]
         envelope=Envelope(
             in_distribution=assessment.in_distribution,
             penalties=[

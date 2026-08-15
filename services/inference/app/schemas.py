@@ -32,6 +32,12 @@ class TimelineArtifact(BaseModel):
     points: list[TimelinePoint]
 
 
+class FaceMapArtifact(BaseModel):
+    type: Literal["face_map"] = "face_map"
+    label: str
+    url: str
+
+
 class SpectrumPlotArtifact(BaseModel):
     type: Literal["spectrum_plot"] = "spectrum_plot"
     label: str
@@ -45,7 +51,7 @@ class NoteArtifact(BaseModel):
 
 
 Artifact = Annotated[
-    HeatmapArtifact | TimelineArtifact | SpectrumPlotArtifact | NoteArtifact,
+    HeatmapArtifact | FaceMapArtifact | TimelineArtifact | SpectrumPlotArtifact | NoteArtifact,
     Field(discriminator="type"),
 ]
 
@@ -91,6 +97,44 @@ class Provenance(BaseModel):
     phash: str | None = None
 
 
+class FaceBox(BaseModel):
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    w: int = Field(gt=0)
+    h: int = Field(gt=0)
+
+
+class FaceFinding(BaseModel):
+    """One analysed face, carrying its own band, interval and caveats."""
+
+    index: int = Field(gt=0)
+    box: FaceBox
+    score: float = Field(ge=0, le=1)
+    band: BandId
+    uncertainty: tuple[float, float]
+    detector_confidence: float = Field(ge=0, le=1)
+    penalties: list[EnvelopePenalty]
+    heatmap_url: str | None = None
+
+
+FacePattern = Literal[
+    "none_elevated",
+    "single_outlier",
+    "several_elevated",
+    "all_elevated",
+    "single_face",
+]
+
+
+class Conclusion(BaseModel):
+    headline: str
+    detail: str
+    next_steps: str
+    pattern: FacePattern
+    faces_analyzed: int = Field(ge=0)
+    faces_elevated: int = Field(ge=0)
+
+
 class MediaMeta(BaseModel):
     kind: MediaKind
     filename: str | None = None
@@ -107,6 +151,8 @@ class AnalysisReport(BaseModel):
     band: BandId
     uncertainty: tuple[float, float]
     streams: list[StreamResult]
+    faces: list[FaceFinding] = Field(default_factory=list)
+    conclusion: Conclusion | None = None
     envelope: Envelope
     provenance: Provenance
     media_meta: MediaMeta

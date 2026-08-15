@@ -7,6 +7,7 @@ Next.js 15 app: upload an image, get an evidence-backed report. Phase 2.
 | Piece | Status |
 |---|---|
 | Upload with explicit per-item consent | ✅ |
+| Group photos: per-face results + plain-language conclusion | ✅ |
 | Job queue (BullMQ) + standalone worker | ✅ |
 | Report page with heatmap, bands, envelope | ✅ |
 | Media TTL sweep (default 24h) | ✅ |
@@ -76,6 +77,10 @@ The sweep marks a row deleted only after the object-store delete succeeds. Doing
 ## Consent
 
 The consent checkbox is unchecked by default and the submit button stays disabled until it is ticked — but that is only the visible half. `POST /api/analyze` rejects any request without `consent=true` **before** anything is written to storage, so bypassing the client does not bypass the gate. There is a test asserting that ordering.
+
+## Local development gotcha
+
+Rebuilding `packages/core` while `next dev` is running invalidates webpack chunks the dev server is holding, and it starts throwing `Cannot find module './vendor-chunks/...'`. Same if a production `next build` runs against the same `.next`. The fix is to stop the dev server, `rm -rf .next`, and restart.
 
 ## Notes on the UI
 
