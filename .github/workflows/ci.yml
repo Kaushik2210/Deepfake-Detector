@@ -34,6 +34,11 @@ jobs:
       - name: Test
         run: pnpm turbo run test
 
+      - name: Build
+        # Catches errors that only surface during the production build, such as
+        # server/client component boundary violations.
+        run: pnpm turbo run build
+
   python:
     name: Lint and test (inference service)
     runs-on: ubuntu-latest

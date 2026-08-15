@@ -41,6 +41,7 @@ eval/data/
 # editor / OS
 .vscode/*
 !.vscode/extensions.json
+.claude/settings.local.json
 .idea/
 .DS_Store
 Thumbs.db

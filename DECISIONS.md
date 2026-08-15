@@ -2,6 +2,32 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-08-15 — Expiry and user deletion are deliberately different
+
+Two retention paths, because they answer different questions. The TTL sweep deletes the stored media but keeps the job row and the perceptual hash, so the user can still read the report they were given and a repeat upload can be recognised without retaining the image. User-initiated deletion removes everything including the hash.
+
+The privacy policy documents both separately. An earlier draft described only the expiry behaviour and claimed the hash was kept "after deletion", which was wrong for the deletion endpoint — an inaccuracy in a compliance document, so the text now distinguishes the two.
+
+The sweep marks a row deleted only after the object-store delete returns successfully. The reverse order would leave orphaned media that no later sweep would ever select, since the query filters on `media_deleted_at IS NULL`.
+
+## 2026-08-15 — Consent is enforced server-side, not just in the UI
+
+The checkbox gates the submit button, but `POST /api/analyze` independently rejects any request without `consent=true`, and does so before writing to object storage. A test asserts the consent check appears earlier in the handler than the `putMedia` call, since a gate that runs after the write is not a gate.
+
+## 2026-08-15 — Clerk optional locally, mandatory in production
+
+Requiring a Clerk account before any of the queue, storage, or report work could be exercised would have blocked the whole phase on an external signup. Instead `authDisabled()` returns true only when keys are absent *and* `NODE_ENV !== "production"` — it throws otherwise, so the bypass cannot reach production. In bypass mode requests are attributed to a fixed development user id rather than skipping the ownership checks, keeping the authorization path identical in both modes.
+
+Job lookups are scoped by user id, so another user's job and a non-existent job are both a 404 and are indistinguishable from outside.
+
+## 2026-08-15 — Worker is a separate process
+
+The queue consumer runs as its own `tsx` process rather than inside a Next.js route handler, matching how it deploys. One consequence worth recording: it does not get Next's automatic `.env.local` loading, so it loads the file itself via `process.loadEnvFile` from a module imported before anything reads `process.env` — import bodies evaluate in order, whereas a bare statement at the top of the worker entry would still run after that module's own imports resolved.
+
+## 2026-08-15 — `next lint` replaced with a direct ESLint invocation
+
+`next lint` is deprecated, will be removed in Next.js 16, and prompts interactively when no ESLint config exists — which would hang CI rather than fail it. The app uses a flat `eslint.config.mjs` wrapping `next/core-web-vitals` through `FlatCompat`, invoked as `eslint .`.
+
 ## 2026-08-15 — YuNet replaces both face detectors named in the spec
 
 The spec proposed RetinaFace or YOLOv8-face. Both block commercial use: Ultralytics YOLOv8 is AGPL-3.0 and that covers the trained models, not just the training code, so shipping it commercially means open-sourcing all of VeriFrame or buying an Enterprise License; InsightFace's code is MIT but its pretrained RetinaFace weights are released for non-commercial research only.

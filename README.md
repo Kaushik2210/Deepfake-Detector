@@ -6,9 +6,17 @@ VeriFrame never outputs a binary "fake/real" verdict. It reports a calibrated pr
 
 ## Status
 
-Phase 1 — the inference service analyses **images** end to end: face detection, a ViT classifier with test-time augmentation, Grad-CAM heatmaps, out-of-distribution envelope checks, and an ONNX export path, served over a REST API. Video, audio, the remaining detection streams, the web app, and the extension come in later phases.
+Phase 2 — you can upload an image in the browser and get back an evidence-backed report. The inference service analyses images end to end (face detection, ViT classifier with test-time augmentation, Grad-CAM heatmaps, envelope checks, ONNX export path), and the web app wraps it with a job queue, storage, auth, retention, and a report UI. Video, audio, the remaining detection streams, and the extension come in later phases.
 
 No accuracy claim is made yet. The cross-dataset eval harness that would justify one is Phase 3 work; see [`services/inference/README.md`](./services/inference/README.md) for a documented false positive on genuine media that shows why.
+
+## Running the whole stack
+
+```bash
+docker compose up -d
+```
+
+Then, in separate terminals: the [inference service](./services/inference/README.md), the queue worker, and the web app — see [`apps/web/README.md`](./apps/web/README.md) for the exact commands and env setup.
 
 ## Structure
 

@@ -1,13 +1,50 @@
 {
   "name": "@veriframe/web",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "Next.js web app — scaffolded here, implemented in Phase 2.",
   "scripts": {
-    "dev": "echo \"apps/web not implemented yet (Phase 2)\"",
-    "build": "echo \"apps/web not implemented yet (Phase 2)\"",
-    "typecheck": "echo \"apps/web not implemented yet (Phase 2)\"",
-    "lint": "echo \"apps/web not implemented yet (Phase 2)\"",
-    "test": "echo \"apps/web not implemented yet (Phase 2)\""
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "worker": "tsx src/worker/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.700.0",
+    "@aws-sdk/s3-request-presigner": "^3.700.0",
+    "@clerk/nextjs": "^6.9.0",
+    "@tanstack/react-query": "^5.62.0",
+    "@veriframe/core": "workspace:*",
+    "bullmq": "^5.34.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.38.0",
+    "ioredis": "^5.4.1",
+    "lucide-react": "^0.468.0",
+    "next": "^15.1.0",
+    "postgres": "^3.4.5",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.5.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.6",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "drizzle-kit": "^0.30.0",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^15.1.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
   }
 }
