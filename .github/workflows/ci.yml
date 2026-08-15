@@ -33,3 +33,31 @@ jobs:
 
       - name: Test
         run: pnpm turbo run test
+
+  python:
+    name: Lint and test (inference service)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/inference
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install PyTorch (CPU build)
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install service
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check app tests scripts
+
+      - name: Test
+        # Model-marked tests download ~340 MB of weights, so they are excluded here
+        # and run locally. Everything else is offline and needs no network.
+        run: pytest -m "not model" -q

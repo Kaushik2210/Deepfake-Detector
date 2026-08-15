@@ -1,0 +1,127 @@
+"""Pydantic mirrors of the Zod schemas in ``packages/core/src/schemas``.
+
+Both sides describe the same wire format. When you change one, change the other —
+``tests/test_contract.py`` guards the field names against drift.
+"""
+
+from __future__ import annotations
+
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field
+
+MediaKind = Literal["image", "video", "audio"]
+StreamName = Literal["spatial", "frequency", "temporal", "provenance", "audio"]
+BandId = Literal["low", "weak", "mixed", "strong", "very_strong"]
+
+
+class HeatmapArtifact(BaseModel):
+    type: Literal["heatmap"] = "heatmap"
+    label: str
+    url: str
+
+
+class TimelinePoint(BaseModel):
+    t: float = Field(ge=0)
+    score: float = Field(ge=0, le=1)
+
+
+class TimelineArtifact(BaseModel):
+    type: Literal["timeline"] = "timeline"
+    label: str
+    points: list[TimelinePoint]
+
+
+class SpectrumPlotArtifact(BaseModel):
+    type: Literal["spectrum_plot"] = "spectrum_plot"
+    label: str
+    url: str
+
+
+class NoteArtifact(BaseModel):
+    type: Literal["note"] = "note"
+    label: str
+    detail: str
+
+
+Artifact = Annotated[
+    HeatmapArtifact | TimelineArtifact | SpectrumPlotArtifact | NoteArtifact,
+    Field(discriminator="type"),
+]
+
+
+class StreamResult(BaseModel):
+    name: StreamName
+    score: float = Field(ge=0, le=1)
+    weight: float = Field(ge=0, le=1)
+    models: list[str]
+    artifacts: list[Artifact]
+
+
+class EnvelopePenalty(BaseModel):
+    reason: str
+    factor: float = Field(ge=0, le=1)
+
+
+class EnvelopeFactors(BaseModel):
+    resolution: str | None = None
+    compression_estimate: str | None = None
+    face_size: str | None = None
+    blur: str | None = None
+    illumination: str | None = None
+
+
+class Envelope(BaseModel):
+    in_distribution: bool
+    penalties: list[EnvelopePenalty]
+    factors_checked: EnvelopeFactors
+
+
+class C2paInfo(BaseModel):
+    present: bool
+    valid: bool | None = None
+    signer: str | None = None
+    trusted_signer: bool | None = None
+
+
+class Provenance(BaseModel):
+    c2pa: C2paInfo | None = None
+    exif_consistent: bool | None = None
+    known_generator_watermark: str | None = None
+    phash: str | None = None
+
+
+class MediaMeta(BaseModel):
+    kind: MediaKind
+    filename: str | None = None
+    mime_type: str
+    size_bytes: int = Field(ge=0)
+    duration_seconds: float | None = None
+    width: int | None = None
+    height: int | None = None
+
+
+class AnalysisReport(BaseModel):
+    job_id: str
+    score: float = Field(ge=0, le=1)
+    band: BandId
+    uncertainty: tuple[float, float]
+    streams: list[StreamResult]
+    envelope: Envelope
+    provenance: Provenance
+    media_meta: MediaMeta
+    model_versions: dict[str, str]
+    processed_at: str
+    ttl_expires_at: str
+    disclaimer: str
+
+
+class AnalyzeJobResponse(BaseModel):
+    job_id: str
+    status: Literal["queued", "processing", "complete", "failed"]
+
+
+class HealthResponse(BaseModel):
+    status: Literal["ok", "degraded", "down"]
+    model_versions: dict[str, str]
+    models_loaded: bool

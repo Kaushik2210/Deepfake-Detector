@@ -1,47 +1,24 @@
+import bandsData from "./bands.json";
+
 /**
- * Single source of truth for score -> band mapping.
+ * Band definitions are loaded from bands.json, which is the canonical table shared
+ * with the Python inference service (services/inference/app/bands.py reads the same
+ * file). Never redeclare these thresholds — change bands.json instead.
+ *
  * Non-negotiable: never collapse this to a binary FAKE/REAL verdict anywhere
  * that consumes this table (web, extension, API responses).
  */
-export const BAND_DEFINITIONS = [
-  {
-    id: "low",
-    min: 0.0,
-    max: 0.2,
-    label: "Low indication",
-    copy: "No manipulation signals detected",
-  },
-  {
-    id: "weak",
-    min: 0.2,
-    max: 0.45,
-    label: "Weak indication",
-    copy: "Some anomalies, likely benign",
-  },
-  {
-    id: "mixed",
-    min: 0.45,
-    max: 0.7,
-    label: "Mixed signals",
-    copy: "Inconclusive — manual review advised",
-  },
-  {
-    id: "strong",
-    min: 0.7,
-    max: 0.88,
-    label: "Strong indication",
-    copy: "Multiple manipulation signals",
-  },
-  {
-    id: "very_strong",
-    min: 0.88,
-    max: 1.0,
-    label: "Very strong indication",
-    copy: "Consistent manipulation signals across detectors",
-  },
-] as const;
+export interface BandDefinition {
+  readonly id: string;
+  readonly min: number;
+  readonly max: number;
+  readonly label: string;
+  readonly copy: string;
+}
 
-export type BandId = (typeof BAND_DEFINITIONS)[number]["id"];
+export const BAND_DEFINITIONS: readonly BandDefinition[] = bandsData.bands;
+
+export type BandId = "low" | "weak" | "mixed" | "strong" | "very_strong";
 
 export const BAND_IDS = BAND_DEFINITIONS.map((b) => b.id) as [BandId, ...BandId[]];
 
@@ -50,7 +27,7 @@ export const BAND_IDS = BAND_DEFINITIONS.map((b) => b.id) as [BandId, ...BandId[
  * Upper bound of the last band is inclusive; every other upper bound is exclusive,
  * so a score sitting exactly on a boundary (e.g. 0.45) falls into the higher band.
  */
-export function scoreToBand(score: number): (typeof BAND_DEFINITIONS)[number] {
+export function scoreToBand(score: number): BandDefinition {
   if (score < 0 || score > 1 || Number.isNaN(score)) {
     throw new RangeError(`score must be a finite number in [0, 1], got ${score}`);
   }
@@ -67,5 +44,4 @@ export function scoreToBand(score: number): (typeof BAND_DEFINITIONS)[number] {
   return band;
 }
 
-export const REPORT_FOOTER_DISCLAIMER =
-  "This result is a signal for human review, not proof, and is not admissible as forensic evidence on its own.";
+export const REPORT_FOOTER_DISCLAIMER: string = bandsData.report_footer_disclaimer;

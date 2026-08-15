@@ -27,6 +27,12 @@ venv/
 *.pth
 uploads/
 tmp/
+.model_cache/
+.artifacts/
+
+# python tooling
+.pytest_cache/
+.ruff_cache/
 
 # datasets (license-gated, never commit)
 datasets/

@@ -1,0 +1,41 @@
+{
+  "_comment": "CANONICAL band table. Read by TypeScript (packages/core/src/bands.ts) and Python (services/inference/app/bands.py) alike. Changing a threshold here changes it everywhere. Do not duplicate these numbers anywhere else in the codebase.",
+  "bands": [
+    {
+      "id": "low",
+      "min": 0.0,
+      "max": 0.2,
+      "label": "Low indication",
+      "copy": "No manipulation signals detected"
+    },
+    {
+      "id": "weak",
+      "min": 0.2,
+      "max": 0.45,
+      "label": "Weak indication",
+      "copy": "Some anomalies, likely benign"
+    },
+    {
+      "id": "mixed",
+      "min": 0.45,
+      "max": 0.7,
+      "label": "Mixed signals",
+      "copy": "Inconclusive — manual review advised"
+    },
+    {
+      "id": "strong",
+      "min": 0.7,
+      "max": 0.88,
+      "label": "Strong indication",
+      "copy": "Multiple manipulation signals"
+    },
+    {
+      "id": "very_strong",
+      "min": 0.88,
+      "max": 1.0,
+      "label": "Very strong indication",
+      "copy": "Consistent manipulation signals across detectors"
+    }
+  ],
+  "report_footer_disclaimer": "This result is a signal for human review, not proof, and is not admissible as forensic evidence on its own."
+}

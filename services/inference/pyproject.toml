@@ -1,9 +1,53 @@
 [project]
 name = "veriframe-inference"
-version = "0.0.0"
-description = "FastAPI inference service — scaffolded here, implemented in Phase 1."
-requires-python = ">=3.11"
-dependencies = []
+version = "0.1.0"
+description = "VeriFrame inference service — image detection pipeline (Stream A: spatial)."
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.20",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "numpy>=1.26,<3",
+    "opencv-python-headless>=4.10",
+    "pillow>=11",
+    "torch>=2.5",
+    "transformers>=4.47",
+    "grad-cam>=1.5",
+    "onnx>=1.17",
+    "onnxruntime>=1.20",
+    # torch>=2.6 routes torch.onnx.export through the dynamo exporter, which needs this.
+    "onnxscript>=0.1",
+    "httpx>=0.28",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [tool.pytest.ini_options]
-testpaths = ["app"]
+testpaths = ["tests"]
+markers = [
+    "model: requires downloading real model weights from Hugging Face (deselect with '-m \"not model\"')",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008 flags function calls in argument defaults. That is exactly how FastAPI
+# declares dependencies and file params, so it is a false positive on route handlers.
+extend-ignore = ["B008"]
