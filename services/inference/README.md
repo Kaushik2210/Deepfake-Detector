@@ -8,12 +8,19 @@ FastAPI service running the detection pipeline. Phase 1 covers **images only**, 
 |---|---|
 | Face detection (YuNet) | ✅ |
 | Stream A — ViT classifier with test-time augmentation | ✅ |
+| Stream B — frequency and signal forensics | ✅ |
+| Stream D — provenance (C2PA, EXIF, generator metadata) | ✅ |
+| Weighted fusion with provenance override | ✅ |
+| Calibration (temperature scaling) fitted by the eval harness | ✅ |
+| Evaluation harness with cross-dataset protocol | ✅ |
+| Per-face results, face map, plain-language conclusion | ✅ |
 | Grad-CAM heatmap artifacts | ✅ |
 | Envelope checks + confidence penalty | ✅ |
 | Perceptual hash | ✅ |
 | ONNX export + inference path | ✅ |
 | `POST /v1/analyze`, `GET /v1/analyze/{job_id}`, `GET /v1/health` | ✅ |
-| Streams B / C / D, video, audio, job queue, `POST /v1/analyze/hash` | ❌ later phases |
+| Second ensemble backbone | ⚠️ machinery built, no suitable model — see `LICENSES.md` |
+| Stream C, video, audio, `POST /v1/analyze/hash` | ❌ later phases |
 
 ## Setup
 

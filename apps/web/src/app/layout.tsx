@@ -30,6 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/" className="hover:text-slate-900">
                   Analyse
                 </Link>
+                <Link href="/accuracy" className="hover:text-slate-900">
+                  Accuracy
+                </Link>
                 <Link href="/privacy" className="hover:text-slate-900">
                   Privacy
                 </Link>

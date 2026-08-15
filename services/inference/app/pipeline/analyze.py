@@ -13,12 +13,15 @@ from app.config import get_settings
 from app.models.registry import get_spatial_model
 from app.pipeline import conclusion as conclusion_mod
 from app.pipeline import envelope as envelope_mod
-from app.pipeline import face_map, gradcam, spatial
+from app.pipeline import face_map, fusion, gradcam, spatial
 from app.pipeline.aggregate import aggregate
 from app.pipeline.faces import crop_face, detect_faces
+from app.pipeline.frequency import analyze_frequency
 from app.pipeline.phash import phash
+from app.pipeline.provenance import analyze_provenance
 from app.schemas import (
     AnalysisReport,
+    C2paInfo,
     Envelope,
     EnvelopeFactors,
     EnvelopePenalty,
@@ -29,12 +32,14 @@ from app.schemas import (
     MediaMeta,
     NoteArtifact,
     Provenance,
+    SpectrumPlotArtifact,
     StreamResult,
 )
 
-# Phase 1 runs one stream, so its fusion weight is trivially 1.0. Real weights are
-# derived from per-stream validation AUC in Phase 3 — not hand-picked.
-_SPATIAL_WEIGHT = 1.0
+
+def _stream_weight(name: str, fallback: float) -> float:
+    """Weight for a stream, from fitted calibration when available."""
+    return fusion.stream_weights().get(name, fallback)
 
 # Score returned when no evidence could be gathered. 0.5 lands in "Mixed signals /
 # Inconclusive — manual review advised", which is what we actually mean; returning
@@ -93,6 +98,52 @@ def analyze_image(
     streams: list[StreamResult] = []
     findings: list[FaceFinding] = []
 
+    # --- Stream B: frequency forensics. Runs on the whole frame, so unlike the
+    # spatial stream it produces a result even when no face is present. ---
+    frequency = analyze_frequency(image_bgr, raw)
+    frequency_artifacts: list = []
+    if frequency.spectrum_plot:
+        frequency_artifacts.append(
+            SpectrumPlotArtifact(
+                label="Radially averaged FFT power spectrum",
+                url=f"{settings.artifact_base_url}/{frequency.spectrum_plot.name}",
+            )
+        )
+    for note in frequency.notes:
+        frequency_artifacts.append(NoteArtifact(label="Frequency analysis", detail=note))
+    frequency_artifacts.append(
+        NoteArtifact(
+            label="Measurements",
+            detail=", ".join(f"{k} {v}" for k, v in frequency.measurements.items()),
+        )
+    )
+
+    streams.append(
+        StreamResult(
+            name="frequency",
+            score=frequency.score,
+            weight=round(_stream_weight("frequency", 0.0), 4),
+            models=["signal statistics (no trained model)"],
+            artifacts=frequency_artifacts,
+        )
+    )
+
+    # --- Stream D: provenance. Highest precision when it fires, silent otherwise. ---
+    prov = analyze_provenance(raw, mime_type)
+    streams.append(
+        StreamResult(
+            name="provenance",
+            # Provenance is not a probability; it acts through the override path
+            # in fusion, so it reports a neutral score rather than a fabricated one.
+            score=0.5,
+            weight=0.0,
+            models=["C2PA manifest reader, EXIF/XMP inspection"],
+            artifacts=[
+                NoteArtifact(label="Provenance", detail=note) for note in prov.notes
+            ],
+        )
+    )
+
     if not faces:
         assessment.penalties.append(
             (
@@ -104,7 +155,27 @@ def analyze_image(
         assessment.in_distribution = False
 
         confidence = assessment.confidence
-        score = _NO_EVIDENCE_SCORE
+
+        # The frequency stream ran, but it must not move the score here. Its
+        # thresholds were derived from face imagery and it has no validated
+        # standalone performance on anything else, so letting it pull the result
+        # down to "likely benign" would claim we checked when we could not.
+        # Provenance is different: it reads recorded facts, needs no face, and is
+        # high-precision, so its override still applies.
+        fused = fusion.fuse(
+            [fusion.StreamInput("frequency", _NO_EVIDENCE_SCORE)],
+            generator_marker=prov.generator_marker,
+            c2pa_valid=bool(prov.c2pa.present and prov.c2pa.valid),
+            c2pa_signer=prov.c2pa.signer,
+        )
+        fusion_notes = [
+            "No face was found, so the spatial classifier could not run. The frequency "
+            "measurements are reported below but do not move this score: they are "
+            "calibrated on face imagery and have no validated standalone accuracy.",
+            *fused.notes,
+        ]
+
+        score = round(min(1.0, max(0.0, fused.score)), 4)
         lo, hi = _uncertainty_band(score, 0.0, confidence)
         conclusion = conclusion_mod.build_no_face_conclusion()
     else:
@@ -158,8 +229,25 @@ def analyze_image(
             assessment.in_distribution = False
 
         confidence = assessment.confidence
-        score = round(min(1.0, max(0.0, _apply_confidence(aggregation.score, confidence))), 4)
-        lo, hi = _uncertainty_band(score, aggregation.spread, confidence)
+
+        # Fuse the spatial aggregate with the frequency stream using weights
+        # fitted from validation AUC, then let provenance override if it fired.
+        fused = fusion.fuse(
+            [
+                fusion.StreamInput("spatial", aggregation.score),
+                fusion.StreamInput("frequency", frequency.score),
+            ],
+            generator_marker=prov.generator_marker,
+            c2pa_valid=bool(prov.c2pa.present and prov.c2pa.valid),
+            c2pa_signer=prov.c2pa.signer,
+        )
+        fusion_notes = list(fused.notes)
+
+        score = round(min(1.0, max(0.0, _apply_confidence(fused.score, confidence))), 4)
+        # Cross-stream disagreement is the real uncertainty source the
+        # architecture called for; TTA spread is kept as a floor.
+        spread = max(fused.disagreement, aggregation.spread)
+        lo, hi = _uncertainty_band(score, spread, confidence)
 
         conclusion = conclusion_mod.build_conclusion(aggregation, score)
 
@@ -190,11 +278,13 @@ def analyze_image(
             NoteArtifact(
                 label="Uncertainty source",
                 detail=(
-                    f"Spread across {len(face_scores[0].variant_scores)} test-time "
-                    "augmentations. Phase 1 runs a single backbone, so this substitutes "
-                    "for ensemble disagreement and is a weaker signal — it measures "
-                    "sensitivity to flip and scale, not error decorrelation across "
-                    "architectures."
+                    f"Disagreement across streams was {fused.disagreement:.4f}; spread "
+                    f"across {len(face_scores[0].variant_scores)} test-time "
+                    "augmentations was "
+                    f"{aggregation.spread:.4f}. The wider of the two sets the reported "
+                    "range. Only one spatial backbone is loaded, so this is still not "
+                    "the full error decorrelation an ensemble of different "
+                    "architectures would give."
                 ),
             )
         )
@@ -203,11 +293,19 @@ def analyze_image(
             StreamResult(
                 name="spatial",
                 score=round(aggregation.score, 4),
-                weight=_SPATIAL_WEIGHT,
+                weight=round(_stream_weight("spatial", 1.0), 4),
                 models=[spatial_model.version_string],
                 artifacts=artifacts,
             )
         )
+
+    # Fusion notes explain how the streams were combined and whether provenance
+    # overrode them, which belongs with the evidence rather than buried.
+    for note in fusion_notes:
+        for stream in streams:
+            if stream.name == "frequency":
+                stream.artifacts.append(NoteArtifact(label="Fusion", detail=note))
+                break
 
     now = datetime.now(UTC)
 
@@ -227,7 +325,19 @@ def analyze_image(
             ],
             factors_checked=EnvelopeFactors(**assessment.factors),
         ),
-        provenance=Provenance(phash=phash(image_bgr)),
+        provenance=Provenance(
+            c2pa=C2paInfo(
+                present=prov.c2pa.present,
+                valid=prov.c2pa.valid,
+                signer=prov.c2pa.signer,
+                trusted_signer=prov.c2pa.trusted_signer,
+            )
+            if prov.c2pa.present
+            else None,
+            exif_consistent=prov.exif_consistent,
+            known_generator_watermark=prov.generator_marker,
+            phash=phash(image_bgr),
+        ),
         media_meta=MediaMeta(
             kind="image",
             filename=filename,

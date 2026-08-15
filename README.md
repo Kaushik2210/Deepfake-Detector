@@ -6,9 +6,9 @@ VeriFrame never outputs a binary "fake/real" verdict. It reports a calibrated pr
 
 ## Status
 
-Phase 2 — you can upload an image in the browser and get back an evidence-backed report. The inference service analyses images end to end (face detection, ViT classifier with test-time augmentation, Grad-CAM heatmaps, envelope checks, ONNX export path), and the web app wraps it with a job queue, storage, auth, retention, and a report UI. Video, audio, the remaining detection streams, and the extension come in later phases.
+Phase 3 — three detection streams (spatial CNN/ViT, frequency forensics, provenance) combined by weighted fusion, with calibration and fusion weights fitted by our own evaluation harness under a cross-dataset protocol. Upload an image in the browser and get an evidence-backed report with per-face results. Video, audio, temporal analysis, and the extension come in later phases.
 
-No accuracy claim is made yet. The cross-dataset eval harness that would justify one is Phase 3 work; see [`services/inference/README.md`](./services/inference/README.md) for a documented false positive on genuine media that shows why.
+Measured accuracy figures live in [`services/inference/eval/reports/`](./services/inference/eval/reports/) and are rendered on the app's `/accuracy` page. Nothing is hand-entered — see [the harness README](./services/inference/eval/README.md) for the protocol and its limits.
 
 ## Running the whole stack
 

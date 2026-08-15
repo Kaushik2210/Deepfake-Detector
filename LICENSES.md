@@ -12,6 +12,15 @@ Tracks licensing for every third-party dataset, pretrained model, and detection-
 | [`grad-cam`](https://github.com/jacobgil/pytorch-grad-cam) | Library | MIT | ✅ Yes | Heatmap artifacts. |
 | PyTorch / Transformers / ONNX Runtime | Libraries | BSD-3-Clause / Apache-2.0 / MIT | ✅ Yes | Model runtime and export. |
 
+## Evaluation datasets
+
+Used only by `services/inference/eval/`. They contribute no weights and no code to the shipped product — only numbers in a report. Neither is committed to this repository; both are streamed from the Hugging Face hub at eval time.
+
+| Name | License | Commercial use? | Role | Notes |
+|---|---|---|---|---|
+| [`OpenRL/DeepFakeFace`](https://huggingface.co/datasets/OpenRL/DeepFakeFace) | Apache-2.0 | ✅ Yes | Calibration split | Real celebrity photographs (IMDB-WIKI) vs faces swapped with InsightFace. |
+| [`pujanpaudel/deepfake_face_classification`](https://huggingface.co/datasets/pujanpaudel/deepfake_face_classification) | **CC BY-NC 4.0** | ⚠️ **No** | Reporting split | Fakes drawn from the DF40 test split (40 manipulation techniques). **Non-commercial.** Evaluation-only use was a deliberate decision — see `DECISIONS.md`. If VeriFrame is commercialised, this corpus must be replaced with a permissively licensed one and the numbers regenerated. |
+
 ## Rejected — commercial-use blockers
 
 These were named as candidates in the original project spec. Both were rejected after checking their terms.
@@ -22,12 +31,17 @@ These were named as candidates in the original project spec. Both were rejected 
 | [InsightFace RetinaFace](https://github.com/deepinsight/insightface/issues/2022) | Code MIT, **weights non-commercial** | The library code is MIT, but the pretrained weights — both manual and auto-downloaded — are released for non-commercial research purposes only. Replaced by YuNet. |
 | [`Wvolf/ViT_Deepfake_Detection`](https://huggingface.co/Wvolf/ViT_Deepfake_Detection) | **None stated** | The model page declares no license, so no rights are granted to use it. Not used. |
 
-## Evaluated, not yet used
+## Second ensemble backbone — evaluated, none adopted
 
-| Name | License | Notes |
-|---|---|---|
-| [`yermandy/deepfake-detection`](https://huggingface.co/yermandy/deepfake-detection) | MIT | CLIP ViT-L/14 with LN-tuning. The only candidate found with a published **cross-dataset** protocol (trained on FaceForensics++, reporting 96.62% AUROC on Celeb-DF-v2 and 87.15% on DFDC). Strongest candidate for the Phase 3 ensemble, and architecturally distinct from the current ViT-base, which matters for error decorrelation. Requires custom loading code rather than plain `transformers`. |
-| [`dima806/deepfake_vs_real_image_detection`](https://huggingface.co/dima806/deepfake_vs_real_image_detection) | Apache-2.0 | Also a `google/vit-base-patch16-224-in21k` fine-tune, so pairing it with the current model would violate the architectural-diversity requirement. Author warns of significant concept drift since training. |
+The architecture calls for several architecturally different backbones so their errors decorrelate. Every candidate checked is blocked by licence or by a missing specification; none was adopted, because a model wired in with guessed preprocessing produces confident nonsense rather than a visible failure.
+
+| Name | License | Architecture | Why not adopted |
+|---|---|---|---|
+| [`yermandy/deepfake-detection`](https://huggingface.co/yermandy/deepfake-detection) | MIT | CLIP ViT-L/14 | Best on the merits — the only candidate publishing a genuine cross-dataset protocol (FF++ → 96.62% AUROC on Celeb-DF-v2, 87.15% on DFDC), and it ships a `model.torchscript` that loads without custom code. **But** its README states images must be preprocessed through the DeepfakeBench pipeline, and neither the normalisation constants nor which of its two logits means "fake" are documented. Its published figures are also *video-level*, aggregated over frames, which is not the task we would use it for. Separately, it takes ~6.8 s per forward pass on this CPU — roughly 6× the current model — which makes it impractical for interactive use without a GPU. |
+| [`Organika/sdxl-detector`](https://huggingface.co/Organika/sdxl-detector) | **CC-BY-NC-3.0** | Swin | Genuinely different architecture, standard `transformers` loading, unambiguous labels. Rejected purely on licence: unlike an evaluation dataset, model weights ship inside the product, so non-commercial weights would block commercial use of VeriFrame entirely. |
+| [`dima806/deepfake_vs_real_image_detection`](https://huggingface.co/dima806/deepfake_vs_real_image_detection) | Apache-2.0 | ViT-base | Licence is fine and loading is trivial, but it is another fine-tune of the same `google/vit-base-patch16-224-in21k` base as the model in use, so pairing them gives correlated errors — the opposite of what an ensemble is for. Author also warns of significant concept drift since training. |
+
+The ensemble machinery (multi-model registry, cross-stream disagreement as the uncertainty source, weight derivation per stream) is built and tested, so adding a backbone is configuration once a suitable one exists.
 
 ## Datasets
 

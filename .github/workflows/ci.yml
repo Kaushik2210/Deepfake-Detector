@@ -57,10 +57,10 @@ jobs:
         run: pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install service
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,eval]"
 
       - name: Lint
-        run: ruff check app tests scripts
+        run: ruff check app tests scripts eval
 
       - name: Test
         # Model-marked tests download ~340 MB of weights, so they are excluded here

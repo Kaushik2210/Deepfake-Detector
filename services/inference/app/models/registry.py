@@ -21,7 +21,20 @@ from app.config import get_settings
 _LOAD_LOCK = threading.Lock()
 
 # Substrings that mark the "manipulated" side of a binary label map, lowercased.
-_POSITIVE_LABEL_HINTS = ("fake", "deepfake", "synthetic", "manipulated", "ai")
+_POSITIVE_LABEL_HINTS = (
+    "fake",
+    "deepfake",
+    "synthetic",
+    "manipulated",
+    "artificial",
+    "generated",
+    "ai",
+)
+
+# Labels meaning "authentic". Checked first, because some checkpoints label the
+# classes {artificial, human} where a naive substring search for "ai" would
+# match nothing and a search for "an" would match both.
+_NEGATIVE_LABEL_HINTS = ("real", "realism", "human", "authentic", "genuine", "original")
 
 
 @dataclass
@@ -39,10 +52,38 @@ class SpatialModel:
 
 
 def _resolve_positive_index(id2label: dict[int, str]) -> int:
-    """Find which logit index means 'manipulated'."""
-    for index, label in id2label.items():
-        if any(hint in label.lower() for hint in _POSITIVE_LABEL_HINTS):
-            return int(index)
+    """Find which logit index means 'manipulated'.
+
+    Checkpoints disagree on ordering — {0: Realism, 1: Deepfake} and
+    {0: artificial, 1: human} both exist in the wild — so this is resolved from
+    the model's own label map. Getting it backwards would invert every score in
+    the product silently, which is why an unrecognised map raises instead of
+    falling back to an index.
+    """
+    lowered = {int(index): label.lower() for index, label in id2label.items()}
+
+    positives = {
+        index
+        for index, label in lowered.items()
+        if any(hint in label for hint in _POSITIVE_LABEL_HINTS)
+    }
+    negatives = {
+        index
+        for index, label in lowered.items()
+        if any(hint in label for hint in _NEGATIVE_LABEL_HINTS)
+    }
+
+    # A label matching both lists is ambiguous and must not resolve either way.
+    positives -= negatives
+
+    if len(positives) == 1:
+        return positives.pop()
+
+    # Binary head where only the authentic class was recognised: the other index
+    # is the manipulated one by elimination.
+    if len(lowered) == 2 and len(negatives) == 1 and not positives:
+        return next(index for index in lowered if index not in negatives)
+
     raise ValueError(
         "could not identify the manipulated-class index from the model's id2label "
         f"({id2label!r}); refusing to guess, because guessing wrong inverts every score"

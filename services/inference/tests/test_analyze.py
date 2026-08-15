@@ -18,14 +18,36 @@ def test_rejects_undecodable_bytes() -> None:
 
 
 def test_no_face_reports_inconclusive_not_clean(no_face_png: bytes) -> None:
-    """Absence of evidence must not be reported as evidence of absence."""
+    """Absence of evidence must not be reported as evidence of absence.
+
+    The frequency stream runs on any image and would happily return a low score
+    here, but its thresholds are calibrated on faces. Letting it pull the result
+    into "likely benign" would claim we assessed something we could not.
+    """
     report = analyze_image(no_face_png, filename="noface.png", mime_type="image/png")
 
     assert report.score == 0.5
     assert report.band == "mixed"
-    assert report.streams == []
     assert not report.envelope.in_distribution
     assert any("No face was detected" in p.reason for p in report.envelope.penalties)
+
+    # No per-face results, even though non-face streams did produce output.
+    assert report.faces == []
+    assert not any(s.name == "spatial" for s in report.streams)
+
+
+def test_frequency_stream_cannot_move_a_no_face_result(no_face_png: bytes) -> None:
+    """Regression guard.
+
+    Fusing frequency into the no-face path once dragged a blank gradient down to
+    0.376 — "weak indication, likely benign" — which asserts the image was
+    checked and looked fine. It was not checked; the detector could not run.
+    """
+    report = analyze_image(no_face_png, mime_type="image/png")
+
+    frequency = next((s for s in report.streams if s.name == "frequency"), None)
+    assert frequency is not None, "frequency should still be reported as context"
+    assert report.score == 0.5, "but it must not move the score"
 
 
 def test_no_face_uncertainty_is_wide(no_face_png: bytes) -> None:

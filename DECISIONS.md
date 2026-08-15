@@ -2,6 +2,41 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-08-15 — Fusion weights are measured, and a stream is allowed to measure as useless
+
+`derive_fusion_weights` sets each stream's weight proportional to how far its validation AUC sits above chance, normalised. A stream at or below 0.5 gets exactly zero and contributes nothing. Two consequences were chosen deliberately:
+
+- A stream measuring **below** chance is not inverted to extract signal from it. Inverting would be fitting to the validation split rather than measuring, and would leave a detector whose reasoning we could not explain.
+- When no fitted weights exist, fusion falls back to a single stream and says so, rather than averaging with invented weights. An unfitted product should behave conservatively, not guess.
+
+## 2026-08-15 — The frequency stream must not move a no-face result
+
+Stream B runs on the whole frame, so it produces a score even when no face is found. Wiring it into the no-face path initially dragged a blank gradient to 0.376 — "weak indication, likely benign" — which asserts the image was examined and looked fine. It was not examined; the primary detector could not run.
+
+Stream B's thresholds are derived from face imagery and it has no validated standalone accuracy on anything else, so on the no-face path it is reported as context but contributes nothing to the score, which stays at 0.5. Stream D is treated differently and still overrides, because it reads recorded facts rather than inferring from pixels and needs no face. There is a regression test naming this specific failure.
+
+## 2026-08-15 — Provenance overrides rather than being heavily weighted
+
+A valid C2PA manifest or self-identifying generator metadata is categorically better evidence than a statistical detector, so Stream D acts through clamp/floor rather than through a weight. Both stop short of certainty: the generator floor leaves the score below 1.0 because such metadata is trivially removable and forgeable, and the C2PA clamp does not zero the score because a signature attests to a signing chain, not to the content being unaltered before signing.
+
+`trusted_signer` is always reported as unknown. We maintain no signer allow-list, and claiming trust we cannot substantiate would be worse than admitting the gap.
+
+## 2026-08-15 — Unmeasurable metrics report themselves as unmeasurable
+
+TPR at FPR=0.1% needs at least ~1,000 authentic samples to observe a single false positive, and far more for a stable estimate. Rather than print a number derived from a handful of events, `tpr_at_fpr` returns "not measurable" with the arithmetic explaining why, and the report and accuracy page render that text. A missing row reads as "fine"; an explicit "not measurable" does not. AUC carries a bootstrap confidence interval for the same reason — sampling error should be visible rather than implied.
+
+## 2026-08-15 — Evaluation corpora are streamed from ZIP archives, never committed
+
+Neither corpus is published as parquet, so `datasets.load_dataset` streaming is unavailable. Both are ZIPs on the Hugging Face hub, which is served with HTTP range support, so `HfFileSystem` plus `zipfile` reads individual members without downloading whole archives — a few hundred images instead of 5.4 GB. The trade-off is many small ranged requests, which is I/O-bound and rate-limited; a full run takes hours on a home connection, dominated by network rather than CPU.
+
+The reporting corpus is CC BY-NC 4.0. Using it for evaluation only was a deliberate decision: it contributes no weights and no code to the product, only numbers in a report. If VeriFrame is commercialised it must be replaced and the numbers regenerated. This is recorded in `LICENSES.md`.
+
+## 2026-08-15 — No second backbone adopted, and why that is recorded rather than worked around
+
+Every candidate for the second ensemble member is blocked. The best on the merits (`yermandy`, MIT, CLIP ViT-L/14, real cross-dataset numbers) does not document its preprocessing — its README defers to the DeepfakeBench pipeline — nor which logit means "fake", and runs at ~6.8 s per forward pass on CPU. The only architecturally distinct model with standard loading (`Organika/sdxl-detector`, Swin) is CC-BY-NC-3.0, and unlike an eval dataset, weights ship inside the product.
+
+Wiring either in with guessed normalisation would produce confident nonsense rather than a visible failure, so neither was adopted. The ensemble machinery is built and tested so that adding one later is configuration. Details in `LICENSES.md`.
+
 ## 2026-08-15 — Group photos: the maximum face score needed a multiplicity correction
 
 Reporting the highest face score as the image score has a defect that shows up precisely on group photos. Every face tested is another opportunity for a high score to appear by chance, so an eight-person photo has many more chances to produce one than a portrait. Left uncorrected, group photos would score systematically higher than solo photos for reasons unrelated to manipulation — and this detector already returns 0.71 on a genuine photograph, so the base rate of spurious highs is not negligible.

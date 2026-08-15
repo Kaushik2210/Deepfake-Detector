@@ -20,6 +20,8 @@ dependencies = [
     # torch>=2.6 routes torch.onnx.export through the dynamo exporter, which needs this.
     "onnxscript>=0.1",
     "httpx>=0.28",
+    # Stream D: Content Credentials verification.
+    "c2pa-python>=0.30",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +29,12 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.25",
     "ruff>=0.8",
+]
+# Evaluation harness only. Not needed to serve inference, and kept separate so a
+# deployment does not pull in the dataset tooling.
+eval = [
+    "scikit-learn>=1.5",
+    "huggingface-hub>=0.26",
 ]
 
 [build-system]
