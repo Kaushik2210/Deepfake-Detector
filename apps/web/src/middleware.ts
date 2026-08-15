@@ -1,21 +1,21 @@
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 /**
- * Clerk's middleware is only mounted when Clerk is actually configured. Without
- * keys the module isn't imported at all, so the app boots in development
- * without a Clerk account.
+ * Clerk's middleware is only applied when Clerk is actually configured, so the
+ * app boots in development without a Clerk account.
+ *
+ * The import is static and the choice is made synchronously. An earlier version
+ * used `await import(...)` at module scope, which made this a top-level-await
+ * module — unsupported in the Edge runtime middleware executes in, and Next
+ * warned it could fail at runtime. Importing `clerkMiddleware` without calling
+ * it is harmless when no keys are set.
  */
 const clerkConfigured =
   Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) &&
   Boolean(process.env.CLERK_SECRET_KEY);
 
-async function passthrough() {
-  return NextResponse.next();
-}
-
-export default clerkConfigured
-  ? (await import("@clerk/nextjs/server")).clerkMiddleware()
-  : passthrough;
+export default clerkConfigured ? clerkMiddleware() : () => NextResponse.next();
 
 export const config = {
   matcher: ["/((?!_next|.*\\..*).*)"],

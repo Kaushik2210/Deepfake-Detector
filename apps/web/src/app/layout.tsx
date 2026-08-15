@@ -13,7 +13,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen">
+      {/*
+        Browser extensions (Grammarly, password managers) inject attributes onto
+        <body> before React hydrates, which reads as a server/client mismatch.
+        This suppresses the warning for attributes on this element only — nested
+        content is still checked normally.
+      */}
+      <body className="min-h-screen" suppressHydrationWarning>
         <Providers>
           <header className="border-b border-slate-200 bg-white">
             <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
