@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import io
 import random
+import socket
+import time
 import zipfile
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -25,6 +27,15 @@ from typing import Literal
 
 import numpy as np
 from PIL import Image
+
+# Without this, a stalled ranged read against the hub blocks forever: three
+# separate evaluation runs hung this way, one of them after scoring 128 images.
+# A bounded timeout turns the hang into an exception the retry loop can handle.
+_SOCKET_TIMEOUT_SECONDS = 60
+socket.setdefaulttimeout(_SOCKET_TIMEOUT_SECONDS)
+
+_ARCHIVE_ATTEMPTS = 4
+_ARCHIVE_BACKOFF_SECONDS = 20
 
 Label = Literal[0, 1]  # 0 = authentic, 1 = manipulated
 
@@ -164,21 +175,58 @@ def load_samples(spec: DatasetSpec, limit: int, seed: int = 0) -> Iterator[Sampl
         by_archive.setdefault(archive_path, []).append((name, label))
 
     for archive_path, wanted in by_archive.items():
-        with fs.open(archive_path, "rb") as handle:
-            with zipfile.ZipFile(handle) as archive:
-                for name, label in wanted:
-                    try:
-                        data = archive.read(name)
-                    except Exception:
-                        continue
-                    image = _decode(data)
-                    if image is None:
-                        continue
-                    archive_name = archive_path.rsplit("/", 1)[-1]
-                    yield Sample(
-                        image_bgr=image,
-                        label=label,
-                        dataset=spec.key,
-                        source=archive_name,
-                        key=f"{archive_name}::{name}",
-                    )
+        archive_name = archive_path.rsplit("/", 1)[-1]
+        pending = list(wanted)
+        attempt = 0
+
+        # Members are read over ranged HTTP against the hub. A connection that
+        # stalls mid-read will hang indefinitely without a socket timeout, and a
+        # rate-limited window can fail a whole batch, so the archive handle is
+        # reopened and the remainder retried rather than losing the run.
+        while pending and attempt < _ARCHIVE_ATTEMPTS:
+            attempt += 1
+            failed: list[tuple[str, Label]] = []
+
+            try:
+                with fs.open(archive_path, "rb") as handle:
+                    with zipfile.ZipFile(handle) as archive:
+                        for name, label in pending:
+                            try:
+                                data = archive.read(name)
+                            except Exception:
+                                failed.append((name, label))
+                                continue
+
+                            image = _decode(data)
+                            if image is None:
+                                # Corrupt member: retrying will not help.
+                                continue
+
+                            yield Sample(
+                                image_bgr=image,
+                                label=label,
+                                dataset=spec.key,
+                                source=archive_name,
+                                key=f"{archive_name}::{name}",
+                            )
+            except Exception:
+                # The handle itself failed; everything still queued is retried.
+                failed = pending
+
+            pending = failed
+            if pending and attempt < _ARCHIVE_ATTEMPTS:
+                delay = _ARCHIVE_BACKOFF_SECONDS * attempt
+                print(
+                    f"  [{spec.key}] {len(pending)} member(s) failed to read from "
+                    f"{archive_name}; retrying in {delay}s "
+                    f"(attempt {attempt + 1}/{_ARCHIVE_ATTEMPTS})",
+                    flush=True,
+                )
+                time.sleep(delay)
+
+        if pending:
+            print(
+                f"  [{spec.key}] giving up on {len(pending)} member(s) of "
+                f"{archive_name} after {_ARCHIVE_ATTEMPTS} attempts",
+                flush=True,
+            )
