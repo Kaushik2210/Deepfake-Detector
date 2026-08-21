@@ -38,6 +38,9 @@ tmp/
 datasets/
 eval/data/
 
+# resumable per-image score cache from the eval harness
+.score_cache/
+
 # editor / OS
 .vscode/*
 !.vscode/extensions.json

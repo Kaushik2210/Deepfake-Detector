@@ -98,6 +98,40 @@ def score_sample(sample: Sample, encode_quality: int | None = None) -> ScoredSam
     )
 
 
+def _cache_path(spec: DatasetSpec, limit: int, seed: int, encode_quality: int | None) -> Path:
+    """Where partial scores for this exact configuration are kept."""
+    suffix = "orig" if encode_quality is None else f"q{encode_quality}"
+    cache_dir = Path(__file__).resolve().parent / ".score_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / f"{spec.key}_n{limit}_s{seed}_{suffix}.jsonl"
+
+
+def _load_cached(path: Path) -> dict[str, ScoredSample]:
+    if not path.is_file():
+        return {}
+
+    cached: dict[str, ScoredSample] = {}
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+                cached[row["key"]] = ScoredSample(
+                    label=row["label"],
+                    spatial=row["spatial"],
+                    frequency=row["frequency"],
+                    provenance_fired=row["provenance_fired"],
+                    faces_found=row["faces_found"],
+                    dataset=row["dataset"],
+                )
+            except (json.JSONDecodeError, KeyError):
+                # A line truncated by a hard kill; the sample is simply rescored.
+                continue
+    return cached
+
+
 def run_dataset(
     spec: DatasetSpec,
     limit: int,
@@ -105,22 +139,59 @@ def run_dataset(
     encode_quality: int | None = None,
     progress_every: int = 100,
 ) -> DatasetRun:
+    """Score a split, resuming from any partial run of the same configuration.
+
+    Reads are ranged HTTP requests against the hub, which rate-limits and times
+    out; two earlier runs died hours in and lost everything. Each score is
+    appended to a JSONL cache as it is produced, so a rerun picks up where the
+    last one stopped. The sample order is deterministic for a given seed, so
+    cache keys line up across runs.
+    """
     run = DatasetRun(spec=spec)
     started = time.time()
 
-    for index, sample in enumerate(load_samples(spec, limit=limit, seed=seed), start=1):
-        scored = score_sample(sample, encode_quality)
-        if scored.spatial is None:
-            run.skipped_no_face += 1
-        run.samples.append(scored)
+    cache_file = _cache_path(spec, limit, seed, encode_quality)
+    cached = _load_cached(cache_file)
+    if cached:
+        print(f"  [{spec.key}] resuming, {len(cached)} already scored", flush=True)
 
-        if progress_every and index % progress_every == 0:
-            elapsed = time.time() - started
-            print(
-                f"  [{spec.key}] {index} scored ({elapsed:.0f}s, "
-                f"{run.skipped_no_face} without a detectable face)",
-                flush=True,
-            )
+    reused = 0
+    with cache_file.open("a", encoding="utf-8") as handle:
+        for index, sample in enumerate(load_samples(spec, limit=limit, seed=seed), start=1):
+            scored = cached.get(sample.key)
+            if scored is not None:
+                reused += 1
+            else:
+                scored = score_sample(sample, encode_quality)
+                handle.write(
+                    json.dumps(
+                        {
+                            "key": sample.key,
+                            "label": scored.label,
+                            "spatial": scored.spatial,
+                            "frequency": scored.frequency,
+                            "provenance_fired": scored.provenance_fired,
+                            "faces_found": scored.faces_found,
+                            "dataset": scored.dataset,
+                        }
+                    )
+                    + "\n"
+                )
+                handle.flush()
+
+            if scored.spatial is None:
+                run.skipped_no_face += 1
+            run.samples.append(scored)
+
+            if progress_every and index % progress_every == 0:
+                elapsed = time.time() - started
+                print(
+                    f"  [{spec.key}] {index} scored ({elapsed:.0f}s, "
+                    f"{run.skipped_no_face} without a detectable face"
+                    + (f", {reused} from cache" if reused else "")
+                    + ")",
+                    flush=True,
+                )
 
     run.seconds = time.time() - started
     return run

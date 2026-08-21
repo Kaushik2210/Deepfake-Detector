@@ -93,6 +93,9 @@ class Sample:
     label: Label
     dataset: str
     source: str
+    # Archive-qualified member path, unique within a dataset. Used as the key for
+    # the resumable score cache, so it must identify exactly one image.
+    key: str
 
 
 def _decode(data: bytes) -> np.ndarray | None:
@@ -171,9 +174,11 @@ def load_samples(spec: DatasetSpec, limit: int, seed: int = 0) -> Iterator[Sampl
                     image = _decode(data)
                     if image is None:
                         continue
+                    archive_name = archive_path.rsplit("/", 1)[-1]
                     yield Sample(
                         image_bgr=image,
                         label=label,
                         dataset=spec.key,
-                        source=archive_path.rsplit("/", 1)[-1],
+                        source=archive_name,
+                        key=f"{archive_name}::{name}",
                     )
