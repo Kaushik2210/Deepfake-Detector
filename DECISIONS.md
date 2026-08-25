@@ -2,6 +2,27 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-08-21 — Fusion weights are derived from validation AUC, and validation AUC disagreed with cross-dataset AUC
+
+The completed evaluation run (`eval/reports/2026-08-21.md`, n=1200/corpus) surfaced a real gap. Fusion weights come from each stream's AUC on the calibration split (`deepfakeface`), per the spec: frequency scored 0.7132 there against spatial's 0.5335, so frequency got 86% of the fusion weight. But on the held-out cross-dataset split (`df40faces`) the ranking inverts — spatial's 0.6633 beats frequency's 0.5890. The stream weighted more heavily is the one that generalizes worse.
+
+This is not a bug in the harness; the cross-dataset protocol is exactly what surfaced it, which is the protocol working as intended. The likely cause is that `deepfakeface` (InsightFace face-swaps composited onto real photos) and `df40faces` (40 different DF40 manipulation techniques) are different enough that a stream tuned to one does not transfer to the other — the frequency stream's unsupervised statistics may be picking up something specific to InsightFace's compositing rather than manipulation in general.
+
+**Decision: ship the validation-derived weights as-is, with the gap documented rather than corrected.** Two ways to "fix" this were considered and rejected for now:
+
+- Deriving weights from the reporting split instead would make it stop being held out — the corpus used to justify the headline numbers would also have been used to tune the model, which is the exact thing the mandatory cross-dataset protocol exists to prevent.
+- A genuine three-way split (fit / validate / report) is the methodologically correct answer, but needs a third evaluation corpus and another multi-hour run, and was deferred rather than blocking Phase 3's close.
+
+Revisit when a third corpus is added: fit fusion weights on validation, pick the fitting procedure using a middle split, and report only on a split touched by neither.
+
+## 2026-08-21 — The eval harness needed to survive real network conditions
+
+Getting one full run to complete took three attempts, each teaching something the harness did not previously handle:
+
+1. A run died at 300/1200 with no partial results kept, because scores were only assembled in memory. Fixed by writing each score to a JSONL cache keyed by archive-qualified member path as it is produced, so a rerun of the same configuration resumes rather than restarting (`fix(eval): make the harness resumable across network failures`).
+2. A rerun then stalled indefinitely after 128 images, alive but making no progress, with no error. `urllib`/`requests` default to no socket timeout, so a connection that stalls mid-read — rather than failing — blocks forever. Fixed with `socket.setdefaulttimeout(60)` plus a per-archive retry loop that reopens the archive handle and retries only the members that failed, up to 4 attempts with backoff (`fix(eval): add socket timeout and per-archive retry to dataset reads`).
+3. The combination let the third attempt finish: it resumed from the 128 already-cached scores and rode out every subsequent stall through the retry loop instead of losing hours of progress to a single bad read.
+
 ## 2026-08-15 — Fusion weights are measured, and a stream is allowed to measure as useless
 
 `derive_fusion_weights` sets each stream's weight proportional to how far its validation AUC sits above chance, normalised. A stream at or below 0.5 gets exactly zero and contributes nothing. Two consequences were chosen deliberately:

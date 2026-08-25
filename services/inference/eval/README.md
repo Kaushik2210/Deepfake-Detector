@@ -40,3 +40,9 @@ Dominated by network, not CPU: thousands of small ranged reads against the hub, 
 ## Known limitation: contamination cannot be ruled out
 
 The classifier's training data is not fully published, so overlap with these evaluation corpora is possible. If it exists, the figures are optimistic. This is stated at the top of every generated report.
+
+## Known limitation: validation AUC and cross-dataset AUC can disagree
+
+The completed run (`reports/2026-08-21.md`) is a live example: the frequency stream scored much higher than spatial on the calibration split (0.713 vs 0.534 AUC) and so received most of the fusion weight, but on the held-out reporting split spatial generalised better (0.663 vs 0.589 AUC) — the stream weighted more heavily is the one that transfers worse. This is the two corpora being different enough that tuning to one does not transfer to the other, and it is exactly what the mandatory cross-dataset protocol exists to expose.
+
+Weights are still derived from the calibration split rather than the reporting split, deliberately: deriving them from the reporting split would mean the corpus backing the headline numbers had also been used to tune the model, which is the specific thing this protocol prevents. The correct fix is a third corpus — fit on one split, select the fitting procedure on a second, report only on a third untouched by either — which is future work, not yet implemented. See `DECISIONS.md`, 2026-08-21.
