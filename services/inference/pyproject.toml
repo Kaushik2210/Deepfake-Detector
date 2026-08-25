@@ -40,6 +40,14 @@ dev = [
 eval = [
     "scikit-learn>=1.5",
     "huggingface-hub>=0.26",
+    # Audio eval datasets are published as proper HF `datasets` repos, unlike the
+    # image corpora's raw ZIPs, so the audio harness streams them through this
+    # instead of reimplementing zip-over-HTTP. The Audio column is read
+    # undecoded (Audio(decode=False)) and decoded via this project's own
+    # soundfile-based audio_io.decode_audio -- NOT via `datasets`'s default
+    # decoder, which requires torchcodec, which itself requires a system FFmpeg
+    # install this project deliberately avoids. See audio_datasets.py.
+    "datasets>=3.0",
 ]
 
 [build-system]

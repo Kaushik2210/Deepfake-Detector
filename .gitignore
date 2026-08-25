@@ -43,8 +43,9 @@ tmp/
 datasets/
 eval/data/
 
-# resumable per-image score cache from the eval harness
+# resumable per-sample score cache from the eval harnesses (images, audio)
 .score_cache/
+.audio_score_cache/
 
 # editor / OS
 .vscode/*

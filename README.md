@@ -33,11 +33,15 @@ An upload goes through up to four independent evidence streams, fused with weigh
 
 A valid, trusted C2PA manifest or a generator naming itself in metadata overrides the statistical streams outright — cryptographic and recorded facts beat inference from pixels. Stream C has no fusion weight yet: no video-labelled evaluation dataset exists to derive one from, so its four signals are reported as supporting evidence but cannot move the reported score, exactly the treatment Stream B had before it was calibrated.
 
+Audio uploads run through a separate pipeline: **AASIST**, a graph-attention anti-spoofing network (MIT-licensed, [NAVER/Clova AI](https://github.com/clovaai/aasist)), with a spectrogram shipped as evidence alongside every score.
+
 ## The honest evaluation
 
 Every accuracy figure quoted anywhere in the product comes from `services/inference/eval/`, our own harness, run under a **mandatory cross-dataset protocol**: calibration is fitted on one corpus, every headline number is reported on a completely different, held-out one. In-dataset numbers — the ones most tools quote — are shown too, purely to make the gap visible.
 
-The most recent run (n=1200 images per corpus) reported spatial-stream AUC of **0.663** and frequency-stream AUC of **0.589** on the held-out split — both far short of anything worth marketing, and reported anyway. Read the full write-up, including a real discrepancy the protocol surfaced between validation and cross-dataset performance, in [`services/inference/eval/README.md`](./services/inference/eval/README.md) and the dated reports alongside it.
+The most recent image run (n=1200 per corpus) reported spatial-stream AUC of **0.663** and frequency-stream AUC of **0.589** on the held-out split — both far short of anything worth marketing, and reported anyway. Read the full write-up, including a real discrepancy the protocol surfaced between validation and cross-dataset performance, in [`services/inference/eval/README.md`](./services/inference/eval/README.md) and the dated reports alongside it.
+
+The audio run (n=60 per corpus, smaller — see the report for why) reported cross-dataset AUC of **0.962** (EER 6.5%) on ASVspoof2021, having been calibrated on ASVspoof2019. Held out for genuine caution regardless of the strong number: both corpora are studio-adjacent TTS/voice-conversion attacks, not the phone calls and voice notes real-world audio actually arrives as — see [`services/inference/eval/reports/audio-2026-08-25.md`](./services/inference/eval/reports/audio-2026-08-25.md).
 
 ## Structure
 
@@ -71,7 +75,7 @@ Built in reviewed phases, each stopped and verified before the next begins:
 - [x] **Phase 3** — Streams B & D, weighted fusion, the evaluation harness and first real numbers
 - [x] **Phase 4** — Video: frame sampling, Stream C, per-frame timeline
 - [ ] **Phase 5** — Chrome extension *(in progress)*
-- [ ] **Phase 6** — Audio pipeline
+- [ ] **Phase 6** — Audio pipeline *(in progress)*
 - [ ] **Phase 7** — Hardening: rate limiting, abuse prevention, Web Store submission
 
 Full phase definitions in [`CLAUDE.md`](./CLAUDE.md#build-phases).

@@ -1,6 +1,6 @@
 # VeriFrame Inference Service
 
-FastAPI service running the detection pipeline. As of Phase 4 it handles both **images and short video clips**.
+FastAPI service running the detection pipeline. It handles **images, short video clips, and audio clips**.
 
 ## What runs today
 
@@ -13,7 +13,7 @@ FastAPI service running the detection pipeline. As of Phase 4 it handles both **
 | Stream D — provenance (C2PA, EXIF, generator metadata) | ✅ |
 | Weighted fusion with provenance override | ✅ |
 | Calibration (temperature scaling) fitted by the eval harness | ✅ |
-| Evaluation harness with cross-dataset protocol | ✅ images only |
+| Evaluation harness with cross-dataset protocol | ✅ images and audio |
 | Per-face / per-frame results, face map, plain-language conclusion | ✅ |
 | Grad-CAM heatmap artifacts | ✅ |
 | Envelope checks + confidence penalty | ✅ |
@@ -25,7 +25,7 @@ FastAPI service running the detection pipeline. As of Phase 4 it handles both **
 | Lip-sync / audio-visual desync | ⚠️ not implemented, licence-blocked — see `LICENSES.md` |
 | Perceptual-hash cache, `POST /v1/analyze/hash` | ✅ |
 | CORS for the Chrome extension (`chrome-extension://` origins) | ✅ |
-| Audio pipeline | ❌ later phase |
+| Audio pipeline: decode, envelope, AASIST classifier, spectrogram evidence | ✅ |
 
 ## Setup
 
@@ -118,6 +118,18 @@ Four sub-signals, all unsupervised heuristics with hand-derived thresholds, matc
 
 Stream C's score is reported as evidence but **does not move the fused result**: no video-labelled dataset exists yet to derive a fusion weight from, so it carries weight 0.0, the same treatment Stream B had before Phase 3 measured it.
 
+## How an audio score is produced
+
+Structurally the simplest pipeline of the three: one stream, no per-item findings (there is no "face" unit for audio).
+
+1. **Decode** via `soundfile` (WAV/FLAC unconditionally; OGG/MP3 depending on the platform's bundled libsndfile — confirmed working via 1.2.2's MP3 support, added in libsndfile 1.1.0), then mix to mono.
+2. **Assess the envelope** — duration relative to AASIST's fixed 4.04s input window, clipping ratio, silence ratio — and accumulate a confidence penalty the same way the image pipeline does. A clip shorter than the window is tiled (repeated) to fill it rather than rejected, but disclosed as a penalty scaled by how much repetition was needed.
+3. **Resample** to 16kHz (polyphase filter) and fit to exactly 64,600 samples (truncate if longer, tile if shorter — AASIST's own deterministic preprocessing, not a random crop).
+4. **Score** with AASIST, a graph-attention anti-spoofing network (MIT, [NAVER/Clova AI](https://github.com/clovaai/aasist)) vendored as research code rather than pip-installed, since it ships with no PyPI package. Trained on ASVspoof2019 LA.
+5. **Generate a spectrogram** (STFT magnitude, dB) as the evidence artifact — audio's equivalent of Stream B's frequency plot or Stream A's Grad-CAM heatmap.
+
+The eval harness (`services/inference/eval/audio_run.py`) reported cross-dataset AUC of **0.962** (EER 6.5%) on ASVspoof2021 after calibrating on ASVspoof2019 — see `eval/reports/audio-2026-08-25.md`. A genuine bug was caught by this exact number during development: the classifier initially shipped with its spoof/bonafide output index inverted (sourced from a wrong AI-generated summary of the upstream eval script), which produced a perfectly-inverted AUC of 0.0 on the training corpus rather than the near-1.0 a working classifier gets there. See `DECISIONS.md`.
+
 ## Known limitation observed in Phase 1
 
 On a genuine 1980s photograph (`grace_hopper.jpg`, US Navy, public domain) the classifier returns a raw score of **0.712**, reported as 0.68 / "Mixed signals" after the calibration penalty. That is a false positive on real, unmanipulated media, and it is the distribution-shift failure the project's principles exist to handle: the model was trained on modern face imagery and a scanned film photograph sits well outside that. The system's response — a "Mixed signals / manual review advised" band rather than a confident accusation — is the designed behaviour, but this is concrete evidence for why binary verdicts are prohibited and why the Phase 3 cross-dataset eval harness must precede any accuracy claim.
@@ -145,3 +157,10 @@ Environment variables, all prefixed `VERIFRAME_` (see `app/config.py`):
 | `VERIFRAME_PHASH_MATCH_MAX_DISTANCE` | `10` | Max Hamming distance for a cache hit |
 | `VERIFRAME_PHASH_SCAN_LIMIT` | `500` | Bounds the linear nearest-neighbour scan |
 | `VERIFRAME_CORS_ALLOW_ORIGIN_REGEX` | `^(chrome-extension://.*\|https?://localhost(:\d+)?)$` | Origins allowed to call this service directly (the extension) |
+| `VERIFRAME_AUDIO_MODEL_CHECKPOINT_URL` | clovaai/aasist's `AASIST.pth` on GitHub | Where the audio classifier's weights are fetched from |
+| `VERIFRAME_AUDIO_TARGET_SAMPLE_RATE` | `16000` | Rate audio is resampled to before scoring |
+| `VERIFRAME_AUDIO_TARGET_SAMPLES` | `64600` | AASIST's fixed input length (~4.04s); shorter clips are tiled, longer ones truncated |
+| `VERIFRAME_MAX_AUDIO_BYTES` | `25 MB` | Audio upload size limit |
+| `VERIFRAME_MAX_AUDIO_DURATION_SECONDS` | `300` | Audio duration limit; longer clips are rejected (HTTP 422) |
+| `VERIFRAME_AUDIO_SILENCE_RATIO_THRESHOLD` | `0.6` | Above this fraction of near-silent frames, a confidence penalty applies |
+| `VERIFRAME_AUDIO_CLIPPING_RATIO_THRESHOLD` | `0.001` | Above this fraction of full-scale samples, a confidence penalty applies |
