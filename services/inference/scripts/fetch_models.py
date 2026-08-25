@@ -34,6 +34,12 @@ def main() -> int:
     model = get_spatial_model()
     print(f"  -> loaded, revision {model.revision}")
 
+    print("fetching audio anti-spoofing model (AASIST) ...")
+    from app.models.audio_registry import ensure_aasist_checkpoint
+
+    audio_path = ensure_aasist_checkpoint()
+    print(f"  -> {audio_path} ({audio_path.stat().st_size / 1024:.0f} KB)")
+
     print("done.")
     return 0
 

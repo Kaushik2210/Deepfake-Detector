@@ -101,6 +101,27 @@ class Settings(BaseSettings):
     # once the cache is large enough for this to matter.
     phash_scan_limit: int = 500
 
+    # --- Audio anti-spoofing (AASIST) ---
+    # MIT license, code and weights both -- see LICENSES.md. Trained on ASVspoof2019
+    # LA (ODC-By, commercial use permitted). The checkpoint is small (~1.2MB) and
+    # committed directly in the upstream repo rather than behind a release asset.
+    audio_model_checkpoint_url: str = (
+        "https://raw.githubusercontent.com/clovaai/aasist/main/models/weights/AASIST.pth"
+    )
+    # AASIST's fixed input: raw waveform, mono, resampled to this rate, then
+    # tiled/truncated to exactly this many samples (~4.04s) -- see audio_io.py.
+    audio_target_sample_rate: int = 16000
+    audio_target_samples: int = 64600
+
+    max_audio_bytes: int = 25 * 1024 * 1024
+    max_audio_duration_seconds: float = 300.0
+
+    # Below this fraction of non-silent samples, too little voiced signal remains
+    # for the classifier to have looked at anything -- a confidence penalty applies.
+    audio_silence_ratio_threshold: float = 0.6
+    # Fraction of samples sitting at or past the float clipping ceiling.
+    audio_clipping_ratio_threshold: float = 0.001
+
     # --- CORS ---
     # The extension calls this service directly from a chrome-extension://
     # origin rather than through the authenticated web app, since it must work

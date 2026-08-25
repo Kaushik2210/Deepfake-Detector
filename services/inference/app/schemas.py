@@ -75,6 +75,11 @@ class EnvelopeFactors(BaseModel):
     face_size: str | None = None
     blur: str | None = None
     illumination: str | None = None
+    # Audio envelope factors.
+    duration: str | None = None
+    sample_rate: str | None = None
+    clipping: str | None = None
+    silence_ratio: str | None = None
 
 
 class Envelope(BaseModel):

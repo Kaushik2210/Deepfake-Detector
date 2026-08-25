@@ -2,6 +2,12 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-08-25 — Audio's classifier is vendored research code, not a `transformers` checkpoint
+
+Every model wired into this codebase so far (`prithivMLmods/Deep-Fake-Detector-v2-Model`, YuNet, MediaPipe FaceLandmarker) loads through a library's own `from_pretrained`-style API. AASIST doesn't: it's a peer-reviewed graph-attention architecture (Jung et al., ICASSP 2022) published as plain research code with no PyPI package, so `app/models/aasist.py` vendors the ~400-line model definition directly from NAVER/Clova AI's repository (MIT license, verified from the repo's own root `LICENSE` file — see `LICENSES.md`) rather than reimplementing it or accepting a weaker but more conveniently-packaged community fine-tune.
+
+This nearly went wrong in a specific way worth recording: the vendored code was initially cleaned up to snake_case attribute names (`pos_S` → `pos_s`, `GAT_layer_S` → `gat_layer_s`, etc.) for lint consistency with the rest of the codebase. PyTorch derives a module's `state_dict()` keys from its attribute names, and the pretrained `AASIST.pth` checkpoint was saved against the *original* non-PEP8 names — so the rename would have made `load_state_dict()` either fail outright or, worse, silently fail to load some layers under `strict=False`. Caught before it shipped by tracing through exactly which names become checkpoint keys (registered `nn.Module`/`nn.Parameter` attributes) versus which don't (plain tensors, method names, class names), and reverted only the attributes that mattered. `tests/test_aasist.py::test_checkpoint_loads_without_key_mismatch` pins this as a regression test.
+
 ## 2026-08-25 — Extension network calls route through the background worker, never the content script
 
 A content script's `fetch()` is subject to the *hosting page's* Content-Security-Policy `connect-src` directive, not the extension's own — a page that locks down outbound requests would silently break analysis on exactly the pages where it fires. `chrome.runtime.sendMessage` to the background service worker sidesteps this entirely, since the service worker's fetches are governed by the extension's own manifest, not the page it happens to be injected into. Every network call (`/v1/analyze`, `/v1/analyze/hash`) is issued from `background.ts`; the content script and offscreen document only ever talk to the background worker over the extension's internal messaging.

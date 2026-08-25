@@ -7,11 +7,13 @@ sample data, so the offline test suite needs no network and no committed binarie
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
 import cv2
 import numpy as np
 import pytest
+import soundfile as sf
 
 
 @pytest.fixture(scope="session")
@@ -82,6 +84,46 @@ def no_face_video_bytes(no_face_bgr: np.ndarray) -> bytes:
     n = int(2 * fps)
     frames = [no_face_bgr for _ in range(n)]
     return _write_clip(frames, fps)
+
+
+def _write_wav(waveform: np.ndarray, sample_rate: int) -> bytes:
+    buffer = io.BytesIO()
+    sf.write(buffer, waveform, sample_rate, format="WAV", subtype="PCM_16")
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def sine_wave_wav():
+    """A pure tone -- decodable, voiced (not silent), not clipped."""
+
+    def _make(duration_seconds: float = 3.0, sample_rate: int = 22050, freq: float = 220.0):
+        t = np.linspace(0, duration_seconds, int(sample_rate * duration_seconds), endpoint=False)
+        waveform = (0.5 * np.sin(2 * np.pi * freq * t)).astype(np.float32)
+        return _write_wav(waveform, sample_rate)
+
+    return _make
+
+
+@pytest.fixture
+def silent_wav():
+    def _make(duration_seconds: float = 3.0, sample_rate: int = 16000) -> bytes:
+        waveform = np.zeros(int(sample_rate * duration_seconds), dtype=np.float32)
+        return _write_wav(waveform, sample_rate)
+
+    return _make
+
+
+@pytest.fixture
+def clipped_wav():
+    """A square wave: every sample sits at full scale."""
+
+    def _make(duration_seconds: float = 2.0, sample_rate: int = 16000) -> bytes:
+        n = int(sample_rate * duration_seconds)
+        waveform = np.full(n, 0.999, dtype=np.float32)
+        waveform[::2] = -0.999
+        return _write_wav(waveform, sample_rate)
+
+    return _make
 
 
 @pytest.fixture

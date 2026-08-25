@@ -25,6 +25,8 @@ dependencies = [
     "httpx>=0.28",
     # Stream D: Content Credentials verification.
     "c2pa-python>=0.30",
+    # Audio decode (wav/flac/ogg) for the audio anti-spoofing pipeline.
+    "soundfile>=0.12",
 ]
 
 [project.optional-dependencies]

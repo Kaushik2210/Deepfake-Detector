@@ -17,10 +17,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from app.config import get_settings
-from app.models import registry
+from app.models import audio_registry, registry
 from app.pipeline import hash_cache
 from app.pipeline.analyze import DecodeError, analyze_image
+from app.pipeline.analyze_audio import AudioTooLongError, analyze_audio
 from app.pipeline.analyze_video import VideoTooLongError, analyze_video
+from app.pipeline.audio_io import AudioDecodeError
 from app.pipeline.video_io import VideoDecodeError
 from app.schemas import AnalysisReport, AnalyzeByHashRequest, HealthResponse
 
@@ -50,7 +52,18 @@ _JOBS: dict[str, AnalysisReport] = {}
 
 _ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
 _ACCEPTED_VIDEO_TYPES = {"video/mp4", "video/quicktime", "video/webm", "video/x-matroska"}
-_ACCEPTED_TYPES = _ACCEPTED_IMAGE_TYPES | _ACCEPTED_VIDEO_TYPES
+# Whatever the installed libsndfile build supports through soundfile -- WAV and
+# FLAC unconditionally; OGG/MP3 are accepted here but may fail to decode on a
+# platform whose bundled libsndfile predates MP3 support, surfacing as a 400.
+_ACCEPTED_AUDIO_TYPES = {
+    "audio/wav",
+    "audio/x-wav",
+    "audio/flac",
+    "audio/x-flac",
+    "audio/ogg",
+    "audio/mpeg",
+}
+_ACCEPTED_TYPES = _ACCEPTED_IMAGE_TYPES | _ACCEPTED_VIDEO_TYPES | _ACCEPTED_AUDIO_TYPES
 
 
 @app.get("/v1/health", response_model=HealthResponse)
@@ -67,6 +80,12 @@ def health() -> HealthResponse:
     else:
         versions["spatial"] = f"{settings.spatial_model_id} (not loaded)"
 
+    versions["audio"] = (
+        audio_registry.get_audio_model().version_string
+        if audio_registry.is_loaded()
+        else "AASIST (not loaded)"
+    )
+
     return HealthResponse(
         status="ok" if loaded else "degraded",
         model_versions=versions,
@@ -79,6 +98,7 @@ async def analyze(file: UploadFile = File(...)) -> AnalysisReport:
     settings = get_settings()
     content_type = file.content_type or ""
     is_video = content_type in _ACCEPTED_VIDEO_TYPES
+    is_audio = content_type in _ACCEPTED_AUDIO_TYPES
 
     if content_type not in _ACCEPTED_TYPES:
         raise HTTPException(
@@ -90,7 +110,12 @@ async def analyze(file: UploadFile = File(...)) -> AnalysisReport:
         )
 
     raw = await file.read()
-    size_limit = settings.max_video_bytes if is_video else settings.max_upload_bytes
+    if is_video:
+        size_limit = settings.max_video_bytes
+    elif is_audio:
+        size_limit = settings.max_audio_bytes
+    else:
+        size_limit = settings.max_upload_bytes
     if len(raw) > size_limit:
         raise HTTPException(
             status_code=413,
@@ -106,13 +131,17 @@ async def analyze(file: UploadFile = File(...)) -> AnalysisReport:
             report = analyze_video(
                 raw, filename=file.filename, mime_type=content_type, job_id=job_id
             )
+        elif is_audio:
+            report = analyze_audio(
+                raw, filename=file.filename, mime_type=content_type, job_id=job_id
+            )
         else:
             report = analyze_image(
                 raw, filename=file.filename, mime_type=content_type, job_id=job_id
             )
-    except (DecodeError, VideoDecodeError) as exc:
+    except (DecodeError, VideoDecodeError, AudioDecodeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except VideoTooLongError as exc:
+    except (VideoTooLongError, AudioTooLongError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         # Never let raw media or byte content reach the logs (privacy principle 4).

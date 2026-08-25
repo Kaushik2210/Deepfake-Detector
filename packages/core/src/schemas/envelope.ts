@@ -23,6 +23,11 @@ export const EnvelopeSchema = z.object({
     face_size: z.string().optional(),
     blur: z.string().optional(),
     illumination: z.string().optional(),
+    // Audio envelope factors.
+    duration: z.string().optional(),
+    sample_rate: z.string().optional(),
+    clipping: z.string().optional(),
+    silence_ratio: z.string().optional(),
   }),
 });
 

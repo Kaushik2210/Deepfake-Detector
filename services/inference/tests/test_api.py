@@ -99,6 +99,23 @@ def test_health_reports_landmarker() -> None:
     assert "landmarker" in body["model_versions"]
 
 
+def test_health_reports_audio() -> None:
+    body = client.get("/v1/health").json()
+    assert "audio" in body["model_versions"]
+
+
+@pytest.mark.model
+def test_full_report_shape_for_audio(sine_wave_wav) -> None:
+    raw = sine_wave_wav(duration_seconds=3.0)
+    response = client.post("/v1/analyze", files={"file": ("clip.wav", raw, "audio/wav")})
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["media_meta"]["kind"] == "audio"
+    assert len(body["streams"]) == 1
+    assert body["streams"][0]["name"] == "audio"
+
+
 def test_cors_allows_a_chrome_extension_origin() -> None:
     response = client.options(
         "/v1/analyze/hash",
