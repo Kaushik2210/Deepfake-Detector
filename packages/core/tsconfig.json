@@ -2,7 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    // Consumed by both apps/web and apps/extension, both browser contexts;
+    // phash.ts's canvas adapter needs the DOM lib's Canvas types.
+    "lib": ["ES2022", "DOM"]
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules", "src/__tests__"]

@@ -47,3 +47,5 @@ export type {
   AnalyzeByHashRequest,
   HealthResponse,
 } from "./schemas/api.js";
+
+export { dctPerceptualHash, hammingDistance, grayscaleGridFromCanvas } from "./phash.js";

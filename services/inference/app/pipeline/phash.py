@@ -14,12 +14,16 @@ _HASH_SIZE = 8
 _DCT_SIZE = 32
 
 
-def phash(image_bgr: np.ndarray) -> str:
-    """64-bit perceptual hash, returned as 16 lowercase hex characters."""
-    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-    resized = cv2.resize(gray, (_DCT_SIZE, _DCT_SIZE), interpolation=cv2.INTER_AREA)
+def hash_from_grid(gray: np.ndarray) -> str:
+    """The DCT-and-threshold math, given an already `_DCT_SIZE`x`_DCT_SIZE`
+    grayscale grid.
 
-    dct = cv2.dct(np.float32(resized))
+    Split out from `phash()` so this half -- the part that must match the TS
+    port in packages/core/src/phash.ts exactly -- can be exercised directly
+    with a known array, independent of the resize step. See
+    `packages/core/src/__tests__/phash.test.ts` for the cross-language check.
+    """
+    dct = cv2.dct(np.float32(gray))
     low_freq = dct[:_HASH_SIZE, :_HASH_SIZE]
 
     # Exclude the DC term from the median: it carries overall brightness, not structure.
@@ -32,6 +36,13 @@ def phash(image_bgr: np.ndarray) -> str:
         value = (value << 1) | int(bit)
 
     return f"{value:016x}"
+
+
+def phash(image_bgr: np.ndarray) -> str:
+    """64-bit perceptual hash, returned as 16 lowercase hex characters."""
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+    resized = cv2.resize(gray, (_DCT_SIZE, _DCT_SIZE), interpolation=cv2.INTER_AREA)
+    return hash_from_grid(resized)
 
 
 def hamming_distance(a: str, b: str) -> int:
