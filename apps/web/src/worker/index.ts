@@ -69,7 +69,16 @@ async function main() {
 
       return { jobId };
     },
-    { connection: redisConnection(), concurrency: 2 },
+    {
+      connection: redisConnection(),
+      concurrency: 2,
+      // BullMQ's 30s default lock is comfortably enough for an image, but a
+      // video job can legitimately run close to a minute (24 sparse frames
+      // through the classifier plus a dense landmark pass). Without this, the
+      // lock can expire mid-job and BullMQ will treat it as stalled and
+      // reprocess it from the start while the first attempt is still running.
+      lockDuration: 5 * 60 * 1000,
+    },
   );
 
   worker.on("failed", async (job, error) => {

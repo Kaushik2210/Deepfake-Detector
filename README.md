@@ -6,9 +6,9 @@ VeriFrame never outputs a binary "fake/real" verdict. It reports a calibrated pr
 
 ## Status
 
-Phase 3 — three detection streams (spatial CNN/ViT, frequency forensics, provenance) combined by weighted fusion, with calibration and fusion weights fitted by our own evaluation harness under a cross-dataset protocol. Upload an image in the browser and get an evidence-backed report with per-face results. Video, audio, temporal analysis, and the extension come in later phases.
+Phase 4 — video is in. Upload a short clip (up to 60s / 100MB) and get an evidence-backed report: per-frame spatial/frequency scoring, a score timeline, and a new temporal stream (optical flow, blink analysis, head-pose jitter, rPPG) reported as supporting evidence. Images still get the full four-stream treatment from Phase 3 (spatial CNN/ViT, frequency forensics, provenance, weighted fusion with calibration fitted by our own eval harness). Audio and the extension come in later phases.
 
-Measured accuracy figures live in [`services/inference/eval/reports/`](./services/inference/eval/reports/) and are rendered on the app's `/accuracy` page. Nothing is hand-entered — see [the harness README](./services/inference/eval/README.md) for the protocol and its limits.
+Measured accuracy figures live in [`services/inference/eval/reports/`](./services/inference/eval/reports/) and are rendered on the app's `/accuracy` page. Nothing is hand-entered — see [the harness README](./services/inference/eval/README.md) for the protocol and its limits. The eval harness covers images only; Stream C has no video-labelled dataset yet, so it carries zero fusion weight and does not move the reported score.
 
 ## Running the whole stack
 

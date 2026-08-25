@@ -11,6 +11,8 @@ Tracks licensing for every third-party dataset, pretrained model, and detection-
 | OpenCV (`opencv-python-headless`) | Library | Apache-2.0 | ✅ Yes | Decode, face detection runtime, DCT for pHash, envelope measurements. |
 | [`grad-cam`](https://github.com/jacobgil/pytorch-grad-cam) | Library | MIT | ✅ Yes | Heatmap artifacts. |
 | PyTorch / Transformers / ONNX Runtime | Libraries | BSD-3-Clause / Apache-2.0 / MIT | ✅ Yes | Model runtime and export. |
+| [MediaPipe](https://github.com/google-ai-edge/mediapipe) + [`face_landmarker`](https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task) | Library + model (478-point face mesh, blendshapes, pose) | Apache-2.0 | ✅ Yes | Stream C landmarks, blink signal (blendshapes), and head pose (transformation matrix). Both the library and the model bundle are Google's own, same terms. |
+| SciPy | Library | BSD-3-Clause | ✅ Yes | Stream C's rPPG: Butterworth bandpass filtering and periodogram peak-finding. |
 
 ## Evaluation datasets
 
@@ -30,6 +32,8 @@ These were named as candidates in the original project spec. Both were rejected 
 | [Ultralytics YOLOv8-face](https://www.ultralytics.com/license) | AGPL-3.0 | AGPL-3.0 covers the trained models as well as the training code. Using it commercially requires either open-sourcing all of VeriFrame under AGPL-3.0 or purchasing an Ultralytics Enterprise License. Replaced by YuNet. |
 | [InsightFace RetinaFace](https://github.com/deepinsight/insightface/issues/2022) | Code MIT, **weights non-commercial** | The library code is MIT, but the pretrained weights — both manual and auto-downloaded — are released for non-commercial research purposes only. Replaced by YuNet. |
 | [`Wvolf/ViT_Deepfake_Detection`](https://huggingface.co/Wvolf/ViT_Deepfake_Detection) | **None stated** | The model page declares no license, so no rights are granted to use it. Not used. |
+| [Wav2Lip](https://github.com/Rudrabha/Wav2Lip) | Code: non-commercial/research only | The architecture's Stream C spec calls for Wav2Lip-style audio-visual desync scoring. Wav2Lip's own README states it is licensed for personal/research/non-commercial use only, because its weights are trained on the LRS2 corpus, which is BBC-copyrighted and restricted to non-commercial research under a separate BBC data agreement. Lip-sync analysis is not implemented in Phase 4 as a result — see the entry below and `services/inference/app/pipeline/temporal.py`. |
+| [`joonson/syncnet_python`](https://github.com/joonson/syncnet_python) (SyncNet) | Code MIT, **weights undocumented** | The natural alternative to Wav2Lip for the same signal. Its *code* is MIT, but its pretrained weights carry no stated license or documented training-data provenance, and it comes from the same Oxford VGG research lineage that produced the LRS2-restricted Wav2Lip model — the same "no license, adjacent to a known-restricted corpus" pattern that got `Wvolf/ViT_Deepfake_Detection` rejected above. Not used. |
 
 ## Second ensemble backbone — evaluated, none adopted
 
@@ -43,6 +47,10 @@ The architecture calls for several architecturally different backbones so their 
 
 The ensemble machinery (multi-model registry, cross-stream disagreement as the uncertainty source, weight derivation per stream) is built and tested, so adding a backbone is configuration once a suitable one exists.
 
-## Datasets
+## Datasets not yet used
 
-None in use. Phase 3 introduces the eval harness; FaceForensics++, Celeb-DF-v2, DFDC, and WildDeepfake each require a signed research agreement, are research-only, and must not be committed to this repository. Their terms will be recorded here before any of them is used.
+FaceForensics++, Celeb-DF-v2, DFDC, and WildDeepfake — the corpora the original spec named for the eval harness — each require a signed research agreement, are research-only, and must not be committed to this repository. `services/inference/eval/` currently uses `OpenRL/DeepFakeFace` and `pujanpaudel/deepfake_face_classification` instead (see "Evaluation datasets" above); these four remain candidates for extending the harness, and their terms will be recorded here before any of them is used.
+
+## No video evaluation dataset yet
+
+Stream C (temporal/biological signals) has no video-labelled dataset to measure against, so unlike Streams A and B it carries no eval-derived fusion weight — it is reported for evidence only. Extending the eval harness to video and picking a licensable video deepfake corpus is future work.

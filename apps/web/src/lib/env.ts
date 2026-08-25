@@ -18,6 +18,7 @@ const serverSchema = z.object({
 
   MEDIA_TTL_HOURS: z.coerce.number().int().positive().default(24),
   MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
+  MAX_VIDEO_BYTES: z.coerce.number().int().positive().default(100 * 1024 * 1024),
 
   CLERK_SECRET_KEY: z.string().optional(),
 });

@@ -2,6 +2,42 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-08-22 — Lip-sync deferred: same licence-blocker pattern as the Phase 3 second backbone
+
+Stream C's spec calls for Wav2Lip-style audio-visual desync scoring. Wav2Lip's weights are non-commercial, trained on the BBC-licensed LRS2 corpus. The natural alternative, SyncNet (`joonson/syncnet_python`), has MIT-licensed code but undocumented weights from the same Oxford VGG lineage that produced Wav2Lip's restriction — the same "no license, adjacent to a known-restricted corpus" red flag that got a candidate rejected in Phase 1. Neither was adopted; lip-sync is not implemented in Phase 4. Recorded in `LICENSES.md`.
+
+## 2026-08-22 — Two frame-sampling densities, because one signal set needs what the other can't afford
+
+The expensive per-frame path (Stream A's ViT+TTA, Stream B, Grad-CAM) is capped at 24 sampled frames to keep worst-case runtime bounded on CPU-only inference — chosen with the user, trading off against a 60-frame option that would roughly double worst-case time. Stream C's biological signals need something close to the opposite: rPPG must resolve a 0.7-4 Hz signal, which by the Nyquist criterion needs at least ~8 Hz sampling, and 24 frames spread over up to 60 seconds is nowhere close. A second, separate, *cheap* pass (decode + landmark-only, no classifier) reads a contiguous ~12-second window at up to 25 fps for exactly this reason. The two passes serve genuinely different signal requirements, not just different budgets.
+
+## 2026-08-22 — Video reuses the image schema instead of forking a `FrameFinding` type
+
+A video's per-sampled-frame primary-face result is structurally the same thing as an image's per-face result — score, band, uncertainty, penalties, an optional heatmap — so it reuses `FaceFinding`/`faces[]` rather than introducing a parallel type. The one real gap this exposed: there was no way to say *when* in the clip a finding occurred, so `timestamp` was added as an optional field (undefined for an image's face, populated for a video's sampled frame). `Aggregation`'s multiplicity-correction logic (Phase 3, originally built for multiple faces in one photo) turned out to generalise directly: many sampled frames tested is the same "more chances for a spurious high score" shape as many faces tested, so a lone elevated frame among 24 gets the identical statistical discount a lone elevated face gets among several people.
+
+## 2026-08-22 — Stream C reports a score but carries zero fusion weight
+
+Same treatment Stream B had before Phase 3 measured it, and Stream D still has: no video-labelled dataset exists to derive a weight from, so Stream C's four sub-signals (optical flow discontinuity, blink analysis, head-pose jitter, rPPG) are computed, scored, and shown as evidence, but `fusion.stream_weights().get("temporal", 0.0)` falls back to zero and the fused score is driven by spatial/frequency/provenance only. A regression test (`test_temporal_stream_never_moves_the_fused_score`) pins this. Extending the eval harness to video is future work — see `LICENSES.md`.
+
+## 2026-08-22 — MediaPipe FaceLandmarker gives blink and pose signals directly, not hand-rolled
+
+The model's blendshape output (`eyeBlinkLeft`/`eyeBlinkRight`) is a trained regression, used directly for the blink signal instead of a hand-rolled eye-aspect-ratio geometric heuristic. Its facial transformation matrix is a rigid transform already fitted by the model's own 3D face geometry, used directly for head pose instead of a separate solvePnP fit. Both are simpler and more grounded than reimplementing the same measurements from raw landmark coordinates.
+
+## 2026-08-22 — Forehead ROI geometry hedges against headwear rather than trying to solve it
+
+The rPPG forehead region is placed relative to eye position and overall face height rather than the topmost mesh landmark, because low headwear (a cap brim) sits at or below where that point falls and would otherwise place the ROI on the brim instead of skin. Verified against a real photo (a naval portrait with a low-brimmed cap) that this still fails when the brim sits very close to the eyebrows — a genuine remaining edge case, not chased further. Instead of iterating on geometry against one adversarial photo, rPPG combines the forehead reading with both cheek ROIs (which land correctly on skin in the same photo), so a bad forehead reading is hedged rather than solely relied upon.
+
+## 2026-08-22 — Frame sampling is tested for real, not mocked: synthetic `.mp4` fixtures via `cv2.VideoWriter`
+
+`cv2.VideoWriter` with `mp4v`/`.mp4` produces small, fast, genuinely decodable video fixtures offline, the same pattern the image test suite established with matplotlib's bundled sample photo. This caught two real bugs during development, not just theoretical ones: `probe()` returned `-1` frame counts for an unopened capture because `int(x or 0)` does not catch negative sentinels (only falsy zero), and a face-map artifact was being attached to the wrong stream in `analyze_video.py` because of the order artifacts were appended in versus when they were mutated.
+
+## 2026-08-22 — A CHROM-cancelled synthetic test signal is not a CHROM bug
+
+Early rPPG tests injected a pure sinusoid proportionally into R and G channels to check the algorithm recovers a known frequency. It didn't — CHROM's `alpha` coefficient is specifically fitted to cancel any signal that varies with a fixed ratio across channels (that's the whole mechanism: it treats a common-mode signal as motion/lighting artifact), so a synthetic pulse injected exactly that way is mathematically guaranteed to cancel to within floating-point noise, regardless of the per-channel amplitudes chosen. This is CHROM working as designed, not a defect. The frequency-domain logic (bandpass + periodogram peak-finding) was factored out into `find_pulse_peak()` and tested directly against a clean 1D synthetic signal instead, which properly validates that half of the pipeline without fighting CHROM's own cancellation.
+
+## 2026-08-22 — Two latent Phase 3 test gaps surfaced and fixed while verifying Phase 4
+
+Running the full model-marked suite (not just the offline `-m "not model"` subset used for routine checks) surfaced two `test_analyze.py` assertions that had been stale since Phase 3 added the frequency and provenance streams to `analyze_image`: one asserted exactly one stream would be returned for a face (now three), the other asserted degraded input always produces a *wider* uncertainty band than clean input. The second was a real behavioural change worth understanding, not just a stale number: since Phase 3, uncertainty width sums a confidence-penalty term (which *is* guaranteed to grow with envelope violations) and a cross-stream-disagreement term (which is genuine, data-driven, and not required to move in the same direction) — a heavily compressed image can happen to show smaller cross-stream disagreement than a clean one if recompression pulls the streams' scores closer together, which does not mean it was judged more trustworthy overall. Both tests now check what the architecture actually guarantees rather than a coincidental total. Neither was a Phase 4 regression; both had simply never been re-run against the code they were asserting about.
+
 ## 2026-08-21 — Fusion weights are derived from validation AUC, and validation AUC disagreed with cross-dataset AUC
 
 The completed evaluation run (`eval/reports/2026-08-21.md`, n=1200/corpus) surfaced a real gap. Fusion weights come from each stream's AUC on the calibration split (`deepfakeface`), per the spec: frequency scored 0.7132 there against spatial's 0.5335, so frequency got 86% of the fusion weight. But on the held-out cross-dataset split (`df40faces`) the ranking inverts — spatial's 0.6633 beats frequency's 0.5890. The stream weighted more heavily is the one that generalizes worse.

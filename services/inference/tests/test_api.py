@@ -94,6 +94,66 @@ def test_full_report_shape_for_a_real_face(real_face_jpeg: bytes) -> None:
     assert required <= set(body)
 
 
+def test_rejects_undecodable_video() -> None:
+    response = client.post(
+        "/v1/analyze", files={"file": ("broken.mp4", b"not a video", "video/mp4")}
+    )
+    assert response.status_code == 400
+
+
+def test_rejects_empty_video_upload() -> None:
+    response = client.post("/v1/analyze", files={"file": ("empty.mp4", b"", "video/mp4")})
+    assert response.status_code == 400
+
+
+def test_rejects_video_over_the_byte_limit(monkeypatch) -> None:
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("VERIFRAME_MAX_VIDEO_BYTES", "100")
+    try:
+        response = client.post(
+            "/v1/analyze",
+            files={"file": ("clip.mp4", b"x" * 200, "video/mp4")},
+        )
+        assert response.status_code == 413
+    finally:
+        get_settings.cache_clear()
+
+
+@pytest.mark.model
+def test_analyze_accepts_a_real_video_end_to_end(real_face_video_bytes: bytes) -> None:
+    response = client.post(
+        "/v1/analyze",
+        files={"file": ("clip.mp4", real_face_video_bytes, "video/mp4")},
+    )
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["media_meta"]["kind"] == "video"
+    assert body["band"] in {"low", "weak", "mixed", "strong", "very_strong"}
+
+    fetched = client.get(f"/v1/analyze/{body['job_id']}")
+    assert fetched.status_code == 200
+    assert fetched.json() == body
+
+
+@pytest.mark.model
+def test_video_over_duration_limit_returns_422(real_face_video_bytes: bytes, monkeypatch) -> None:
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("VERIFRAME_MAX_VIDEO_DURATION_SECONDS", "1")
+    try:
+        response = client.post(
+            "/v1/analyze",
+            files={"file": ("clip.mp4", real_face_video_bytes, "video/mp4")},
+        )
+        assert response.status_code == 422
+    finally:
+        get_settings.cache_clear()
+
+
 @pytest.mark.model
 def test_heatmap_artifact_is_actually_served(real_face_jpeg: bytes) -> None:
     """A heatmap URL that 404s is the same failure as having no heatmap."""

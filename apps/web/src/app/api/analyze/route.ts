@@ -9,7 +9,14 @@ import { ensureBucket, putMedia } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
-const ACCEPTED = new Set(["image/jpeg", "image/png", "image/webp", "image/bmp"]);
+const ACCEPTED_IMAGE = new Set(["image/jpeg", "image/png", "image/webp", "image/bmp"]);
+const ACCEPTED_VIDEO = new Set([
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "video/x-matroska",
+]);
+const ACCEPTED = new Set([...ACCEPTED_IMAGE, ...ACCEPTED_VIDEO]);
 
 export async function POST(request: Request) {
   const userId = await currentUserId();
@@ -45,9 +52,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "empty file" }, { status: 400 });
   }
 
-  if (file.size > env.MAX_UPLOAD_BYTES) {
+  const isVideo = ACCEPTED_VIDEO.has(file.type);
+  const sizeLimit = isVideo ? env.MAX_VIDEO_BYTES : env.MAX_UPLOAD_BYTES;
+
+  if (file.size > sizeLimit) {
     return NextResponse.json(
-      { error: `file exceeds ${env.MAX_UPLOAD_BYTES} bytes` },
+      { error: `file exceeds ${sizeLimit} bytes` },
       { status: 413 },
     );
   }

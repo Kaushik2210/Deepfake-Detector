@@ -42,6 +42,48 @@ def no_face_bgr(no_face_png: bytes) -> np.ndarray:
     return cv2.imdecode(np.frombuffer(no_face_png, np.uint8), cv2.IMREAD_COLOR)
 
 
+def _write_clip(frames: list[np.ndarray], fps: float) -> bytes:
+    import tempfile
+
+    height, width = frames[0].shape[:2]
+    path = tempfile.mktemp(suffix=".mp4")
+    writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+    for frame in frames:
+        writer.write(frame)
+    writer.release()
+    return Path(path).read_bytes()
+
+
+@pytest.fixture(scope="session")
+def real_face_video_bytes(real_face_bgr: np.ndarray) -> bytes:
+    """A short synthetic clip: the real portrait, gently jittered frame to
+    frame, so face/landmark tracking succeeds throughout without needing a
+    genuine video file."""
+    height, width = real_face_bgr.shape[:2]
+    fps = 25.0
+    n = int(4 * fps)  # 4 seconds
+
+    frames = []
+    for i in range(n):
+        angle = 1.5 * np.sin(i / 20.0)
+        matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1.0)
+        warped = cv2.warpAffine(
+            real_face_bgr, matrix, (width, height), borderMode=cv2.BORDER_REPLICATE
+        )
+        frames.append(warped)
+
+    return _write_clip(frames, fps)
+
+
+@pytest.fixture(scope="session")
+def no_face_video_bytes(no_face_bgr: np.ndarray) -> bytes:
+    """A clip that never contains a face."""
+    fps = 25.0
+    n = int(2 * fps)
+    frames = [no_face_bgr for _ in range(n)]
+    return _write_clip(frames, fps)
+
+
 @pytest.fixture
 def jpeg_at_quality(real_face_bgr: np.ndarray):
     """Re-encode the sample photo at a chosen JPEG quality."""

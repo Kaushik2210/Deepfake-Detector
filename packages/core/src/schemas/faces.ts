@@ -18,7 +18,9 @@ export const FaceBoxSchema = z.object({
  * confidence.
  */
 export const FaceFindingSchema = z.object({
-  // 1-based, matching the numbering drawn on the face-map artifact.
+  // 1-based. For an image this matches the numbering on the face-map artifact;
+  // for a video this is the sampled frame's ordinal, and `timestamp` locates it
+  // in the clip.
   index: z.number().int().positive(),
   box: FaceBoxSchema,
   score: z.number().min(0).max(1),
@@ -27,6 +29,9 @@ export const FaceFindingSchema = z.object({
   detector_confidence: z.number().min(0).max(1),
   penalties: z.array(EnvelopePenaltySchema),
   heatmap_url: z.string().url().optional(),
+  // Seconds into the clip. Present for video findings only -- undefined for a
+  // face found in a still image, which has no time axis.
+  timestamp: z.number().nonnegative().optional(),
 });
 
 export type FaceBox = z.infer<typeof FaceBoxSchema>;

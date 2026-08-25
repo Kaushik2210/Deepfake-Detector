@@ -40,7 +40,9 @@ function FaceCard({ face }: { face: FaceFinding }) {
           <p className="mt-1.5 text-sm text-slate-600">{band.copy}</p>
           <p className="mt-1 text-xs text-slate-500">
             Likely range {lo.toFixed(2)}–{hi.toFixed(2)} · {face.box.w}×{face.box.h}px
-            at ({face.box.x}, {face.box.y})
+            {face.timestamp !== undefined
+              ? ` · at ${face.timestamp.toFixed(1)}s`
+              : ` at (${face.box.x}, ${face.box.y})`}
           </p>
         </div>
 
@@ -79,20 +81,28 @@ function FaceCard({ face }: { face: FaceFinding }) {
   );
 }
 
-export function FaceFindings({ faces }: { faces: FaceFinding[] }) {
+export function FaceFindings({
+  faces,
+  unit = "face",
+}: {
+  faces: FaceFinding[];
+  unit?: "face" | "frame";
+}) {
   if (faces.length === 0) return null;
 
-  // Most notable first, so a reader scanning a group photo sees the faces that
-  // need attention without hunting through the ones that don't.
+  // Most notable first, so a reader scanning a group photo (or a long clip)
+  // sees the findings that need attention without hunting through the rest.
   const ordered = [...faces].sort((a, b) => b.score - a.score);
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5">
       <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
-        Per-face results
+        Per-{unit} results
       </h2>
       <p className="mb-4 text-sm text-slate-600">
-        Each face is scored on its own. Numbers match the labelled image above.
+        {unit === "frame"
+          ? "Each sampled frame's primary face is scored on its own; timestamps match the timeline above."
+          : "Each face is scored on its own. Numbers match the labelled image above."}
         {faces.length > 1 && " Sorted by score, highest first."}
       </p>
 

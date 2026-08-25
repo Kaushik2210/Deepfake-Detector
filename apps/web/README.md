@@ -1,20 +1,22 @@
 # VeriFrame Web App
 
-Next.js 15 app: upload an image, get an evidence-backed report. Phase 2.
+Next.js 15 app: upload an image or a short video, get an evidence-backed report.
 
 ## What runs today
 
 | Piece | Status |
 |---|---|
 | Upload with explicit per-item consent | ✅ |
+| Image or video upload (video: ≤60s, ≤100MB) | ✅ |
 | Group photos: per-face results + plain-language conclusion | ✅ |
+| Video: per-frame results, score timeline, temporal-signal evidence | ✅ |
 | Job queue (BullMQ) + standalone worker | ✅ |
 | Report page with heatmap, bands, envelope | ✅ |
 | Media TTL sweep (default 24h) | ✅ |
 | Deletion endpoint (DPDP / GDPR) | ✅ |
 | Privacy policy page | ✅ |
 | Clerk auth | ⚠️ wired, runs in dev-bypass without keys |
-| Video, audio, extension, hash-cache lookup | ❌ later phases |
+| Audio, extension, hash-cache lookup | ❌ later phases |
 
 ## Running it
 
@@ -77,6 +79,10 @@ The sweep marks a row deleted only after the object-store delete succeeds. Doing
 ## Consent
 
 The consent checkbox is unchecked by default and the submit button stays disabled until it is ticked — but that is only the visible half. `POST /api/analyze` rejects any request without `consent=true` **before** anything is written to storage, so bypassing the client does not bypass the gate. There is a test asserting that ordering.
+
+## Video jobs and BullMQ's lock duration
+
+BullMQ defaults to a 30-second job lock: if a worker hasn't finished (or heartbeated) within that window, the job is treated as stalled and can be reprocessed from scratch while the original attempt is still running. That was never a problem for images, but a video job can legitimately take close to a minute (24 sampled frames through the classifier, plus a dense landmark pass for Stream C). The worker sets `lockDuration: 5 * 60 * 1000` on the analysis queue for this reason — see `src/worker/index.ts`.
 
 ## Local development gotcha
 

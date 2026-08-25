@@ -13,7 +13,15 @@ from pathlib import Path
 
 import pytest
 
-from app.schemas import AnalysisReport, Envelope, MediaMeta, Provenance, StreamResult
+from app.schemas import (
+    AnalysisReport,
+    Conclusion,
+    Envelope,
+    FaceFinding,
+    MediaMeta,
+    Provenance,
+    StreamResult,
+)
 
 _CORE_SCHEMAS = (
     Path(__file__).resolve().parents[3] / "packages" / "core" / "src" / "schemas"
@@ -71,6 +79,8 @@ def report_source() -> str:
         ("EnvelopeSchema", Envelope),
         ("ProvenanceSchema", Provenance),
         ("MediaMetaSchema", MediaMeta),
+        ("FaceFindingSchema", FaceFinding),
+        ("ConclusionSchema", Conclusion),
     ],
 )
 def test_python_and_zod_agree_on_fields(report_source: str, schema_name: str, model) -> None:

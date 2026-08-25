@@ -3,6 +3,7 @@ import { REPORT_FOOTER_DISCLAIMER, type AnalysisReport } from "@veriframe/core";
 import { ConclusionPanel } from "./ConclusionPanel";
 import { FaceFindings } from "./FaceFindings";
 import { ScoreBand } from "./ScoreBand";
+import { TimelineChart } from "./TimelineChart";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -19,17 +20,24 @@ export function ReportView({ report }: { report: AnalysisReport }) {
   const { envelope } = report;
 
   const faces = report.faces ?? [];
+  const isVideo = report.media_meta.kind === "video";
+  const unit = isVideo ? "frame" : "face";
 
   return (
     <div className="space-y-5">
-      {report.conclusion && <ConclusionPanel conclusion={report.conclusion} />}
+      {report.conclusion && (
+        <ConclusionPanel conclusion={report.conclusion} unit={unit} />
+      )}
 
       <Section title={faces.length > 1 ? "Overall assessment" : "Assessment"}>
         <ScoreBand score={report.score} uncertainty={report.uncertainty} />
         {faces.length > 1 && (
           <p className="mt-3 text-sm text-slate-600">
-            This is the highest of the {faces.length} individual face scores, adjusted
-            for the caveats below. Each face is reported separately further down.
+            This is the highest of the {faces.length} individual {unit} scores,
+            adjusted for the caveats below.{" "}
+            {isVideo
+              ? `Sampled ${unit}s are reported separately further down.`
+              : `Each ${unit} is reported separately further down.`}
           </p>
         )}
       </Section>
@@ -111,6 +119,18 @@ export function ReportView({ report }: { report: AnalysisReport }) {
                       );
                     }
 
+                    if (artifact.type === "timeline") {
+                      return (
+                        <figure key={index}>
+                          <TimelineChart points={artifact.points} />
+                          <figcaption className="mt-1 text-xs text-slate-500">
+                            {artifact.label}. Dot colour matches each sampled {unit}
+                            &rsquo;s band.
+                          </figcaption>
+                        </figure>
+                      );
+                    }
+
                     if (artifact.type === "heatmap") {
                       return (
                         <figure key={index}>
@@ -149,7 +169,7 @@ export function ReportView({ report }: { report: AnalysisReport }) {
         )}
       </Section>
 
-      <FaceFindings faces={faces} />
+      <FaceFindings faces={faces} unit={unit} />
 
       <Section title="Input characteristics">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">

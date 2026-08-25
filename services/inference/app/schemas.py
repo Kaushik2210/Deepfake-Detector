@@ -105,7 +105,11 @@ class FaceBox(BaseModel):
 
 
 class FaceFinding(BaseModel):
-    """One analysed face, carrying its own band, interval and caveats."""
+    """One analysed face, carrying its own band, interval and caveats.
+
+    For a video, ``index`` is the sampled frame's ordinal and ``timestamp``
+    locates it in the clip; for a still image ``timestamp`` stays None.
+    """
 
     index: int = Field(gt=0)
     box: FaceBox
@@ -115,6 +119,7 @@ class FaceFinding(BaseModel):
     detector_confidence: float = Field(ge=0, le=1)
     penalties: list[EnvelopePenalty]
     heatmap_url: str | None = None
+    timestamp: float | None = None
 
 
 FacePattern = Literal[

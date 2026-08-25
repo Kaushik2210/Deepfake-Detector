@@ -43,6 +43,31 @@ class Settings(BaseSettings):
     # JPEG quality estimate below this reads as heavily recompressed.
     min_jpeg_quality: int = 70
 
+    # --- Video ---
+    max_video_bytes: int = 100 * 1024 * 1024
+    max_video_duration_seconds: float = 60.0
+
+    # Expensive per-frame analysis (Stream A's ViT+TTA, Stream B's frequency
+    # stats, Grad-CAM) can only afford a small capped sample on this CPU-only
+    # service. Chosen so worst case stays under roughly a minute.
+    video_sparse_frame_cap: int = 24
+    video_sparse_heatmap_top_k: int = 3
+
+    # Stream C's biological signals need temporally dense, evenly-spaced frames
+    # to resolve a periodic signal at all -- the sparse sample above is far too
+    # coarse. This is a second, separate, much cheaper (landmark-only) pass.
+    video_dense_window_max_seconds: float = 12.0
+    video_dense_window_target_fps: float = 25.0
+    video_dense_window_max_frames: int = 300
+
+    # rPPG needs enough samples to resolve a 0.7-4 Hz signal with usable
+    # frequency resolution; below this the FFT bin width is too coarse to trust.
+    video_min_dense_frames_for_rppg: int = 96
+    # Below this, too little time has passed to expect even one blink cycle
+    # (typical adult blink interval is 2-10s), so a rate estimate is not
+    # trustworthy rather than "zero blinks observed."
+    video_min_dense_frames_for_blink: int = 60
+
     # --- Paths ---
     model_cache_dir: Path = _SERVICE_ROOT / ".model_cache"
     artifact_dir: Path = _SERVICE_ROOT / ".artifacts"

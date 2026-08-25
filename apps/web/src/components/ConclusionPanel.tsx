@@ -4,7 +4,16 @@ import type { Conclusion } from "@veriframe/core";
  * The plain-language summary, shown first because it is what most readers will
  * actually read. Everything below it on the report is the supporting detail.
  */
-export function ConclusionPanel({ conclusion }: { conclusion: Conclusion }) {
+export function ConclusionPanel({
+  conclusion,
+  unit = "face",
+}: {
+  conclusion: Conclusion;
+  /** "frame" for a video's per-frame findings, "face" for an image's faces.
+   * Cosmetic only -- the underlying field names describe the same counts
+   * either way, a sampled frame's primary face being the unit of analysis. */
+  unit?: "face" | "frame";
+}) {
   const { faces_analyzed: analyzed, faces_elevated: elevated } = conclusion;
 
   return (
@@ -13,7 +22,8 @@ export function ConclusionPanel({ conclusion }: { conclusion: Conclusion }) {
 
       {analyzed > 0 && (
         <p className="mt-1 text-sm text-slate-500">
-          {analyzed} {analyzed === 1 ? "face" : "faces"} analysed
+          {analyzed} {unit}
+          {analyzed === 1 ? "" : "s"} analysed
           {elevated > 0 && ` · ${elevated} above the review threshold`}
         </p>
       )}

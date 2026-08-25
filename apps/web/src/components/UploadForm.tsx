@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/bmp"];
+const ACCEPTED_IMAGE = ["image/jpeg", "image/png", "image/webp", "image/bmp"];
+const ACCEPTED_VIDEO = ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska"];
+const ACCEPTED = [...ACCEPTED_IMAGE, ...ACCEPTED_VIDEO];
 
 export function UploadForm({ ttlHours }: { ttlHours: number }) {
   const router = useRouter();
@@ -55,7 +57,13 @@ export function UploadForm({ ttlHours }: { ttlHours: number }) {
                 {(file.size / 1024).toFixed(0)} KB · {file.type}
               </>
             ) : (
-              "Choose an image (JPEG, PNG, WebP, BMP)"
+              <>
+                Choose an image (JPEG, PNG, WebP, BMP) or a short video
+                <br />
+                <span className="text-xs text-slate-500">
+                  Video: MP4, MOV, WebM, or MKV, up to 60 seconds and 100 MB
+                </span>
+              </>
             )}
           </span>
         </label>
@@ -101,7 +109,9 @@ export function UploadForm({ ttlHours }: { ttlHours: number }) {
         disabled={!file || !consented || submitting}
         className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
       >
-        {submitting ? "Uploading…" : "Analyse this image"}
+        {submitting
+          ? "Uploading…"
+          : `Analyse this ${file && ACCEPTED_VIDEO.includes(file.type) ? "video" : "image"}`}
       </button>
     </form>
   );
