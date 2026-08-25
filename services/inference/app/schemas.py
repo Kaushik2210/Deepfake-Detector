@@ -172,6 +172,16 @@ class AnalyzeJobResponse(BaseModel):
     status: Literal["queued", "processing", "complete", "failed"]
 
 
+class AnalyzeByHashRequest(BaseModel):
+    # Exactly what phash() produces: 64 bits as lowercase hex. Validated here,
+    # not left to hamming_distance() to discover, because this field comes
+    # straight from an untrusted caller (the extension's own client-side hash
+    # implementation) and a length mismatch there raises ValueError rather
+    # than returning cleanly -- worth a 422 at the boundary, not a 500 from
+    # inside the cache scan.
+    phash: str = Field(pattern=r"^[0-9a-f]{16}$")
+
+
 class HealthResponse(BaseModel):
     status: Literal["ok", "degraded", "down"]
     model_versions: dict[str, str]

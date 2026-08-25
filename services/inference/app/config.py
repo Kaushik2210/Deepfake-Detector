@@ -86,6 +86,29 @@ class Settings(BaseSettings):
     # --- Limits ---
     max_upload_bytes: int = 25 * 1024 * 1024
 
+    # --- Perceptual-hash cache (POST /v1/analyze/hash) ---
+    # Same instance the web app uses, in a table the inference service owns
+    # rather than one Drizzle manages, so the two don't contend over migrations.
+    database_url: str = "postgresql://veriframe:veriframe@localhost:5432/veriframe"
+    # A client-computed hash (browser canvas resize) will not bit-match a
+    # server-computed one (OpenCV resize) even for the identical source file,
+    # on top of whatever drift recompression/rescaling already cause -- see
+    # DECISIONS.md. Wider than the ~4-6 bits recompression alone costs, chosen
+    # without an empirical corpus to tune against.
+    phash_match_max_distance: int = 10
+    # Bounds the naive linear scan used when no exact hash match exists. A
+    # proper approximate-nearest-neighbour index (BK-tree, LSH) is future work
+    # once the cache is large enough for this to matter.
+    phash_scan_limit: int = 500
+
+    # --- CORS ---
+    # The extension calls this service directly from a chrome-extension://
+    # origin rather than through the authenticated web app, since it must work
+    # without the user being signed into a web session. Wildcarded to any
+    # chrome-extension:// origin plus localhost for now; a fixed extension ID
+    # allowlist is tightened in Phase 7 once the published ID is known.
+    cors_allow_origin_regex: str = r"^(chrome-extension://.*|https?://localhost(:\d+)?)$"
+
     def ensure_dirs(self) -> None:
         self.model_cache_dir.mkdir(parents=True, exist_ok=True)
         self.artifact_dir.mkdir(parents=True, exist_ok=True)

@@ -94,6 +94,69 @@ def test_full_report_shape_for_a_real_face(real_face_jpeg: bytes) -> None:
     assert required <= set(body)
 
 
+def test_health_reports_landmarker() -> None:
+    body = client.get("/v1/health").json()
+    assert "landmarker" in body["model_versions"]
+
+
+def test_cors_allows_a_chrome_extension_origin() -> None:
+    response = client.options(
+        "/v1/analyze/hash",
+        headers={
+            "Origin": "chrome-extension://abcdefghijklmnopqrstuvwxyzabcdef",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == (
+        "chrome-extension://abcdefghijklmnopqrstuvwxyzabcdef"
+    )
+
+
+def test_cors_rejects_an_arbitrary_web_origin() -> None:
+    response = client.options(
+        "/v1/analyze/hash",
+        headers={
+            "Origin": "https://evil.example.com",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert "access-control-allow-origin" not in response.headers
+
+
+@pytest.mark.db
+def test_analyze_by_hash_returns_404_for_an_unknown_hash() -> None:
+    response = client.post("/v1/analyze/hash", json={"phash": "beef0000000000be"})
+    assert response.status_code == 404
+
+
+def test_analyze_by_hash_rejects_a_malformed_hash() -> None:
+    """Regression guard.
+
+    A wrong-length hash reaching the cache scan raised ValueError from
+    hamming_distance() and surfaced as a 500. The caller here is untrusted --
+    the extension's own client-side hash implementation -- so this must be a
+    clean 422, not a crash.
+    """
+    for bad in ("too-short", "0" * 15, "0" * 17, "UPPERCASE0000000", "not-hex-chars!!!"):
+        response = client.post("/v1/analyze/hash", json={"phash": bad})
+        assert response.status_code == 422, f"{bad!r} should have been rejected"
+
+
+@pytest.mark.db
+def test_analyze_then_lookup_by_reported_phash(no_face_png: bytes) -> None:
+    posted = client.post(
+        "/v1/analyze", files={"file": ("noface.png", no_face_png, "image/png")}
+    )
+    report = posted.json()
+    phash = report["provenance"]["phash"]
+    assert phash
+
+    looked_up = client.post("/v1/analyze/hash", json={"phash": phash})
+    assert looked_up.status_code == 200
+    assert looked_up.json()["job_id"] == report["job_id"]
+
+
 def test_rejects_undecodable_video() -> None:
     response = client.post(
         "/v1/analyze", files={"file": ("broken.mp4", b"not a video", "video/mp4")}

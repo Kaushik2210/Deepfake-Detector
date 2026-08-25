@@ -13,14 +13,16 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from app.config import get_settings
 from app.models import registry
+from app.pipeline import hash_cache
 from app.pipeline.analyze import DecodeError, analyze_image
 from app.pipeline.analyze_video import VideoTooLongError, analyze_video
 from app.pipeline.video_io import VideoDecodeError
-from app.schemas import AnalysisReport, HealthResponse
+from app.schemas import AnalysisReport, AnalyzeByHashRequest, HealthResponse
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,16 @@ app = FastAPI(
         "Synthetic-media detection. Returns a calibrated probability with an "
         "uncertainty band and supporting evidence — never a binary verdict."
     ),
+)
+
+# The extension calls this service directly from a chrome-extension:// origin,
+# unauthenticated, since it must work without a signed-in web session -- see
+# config.cors_allow_origin_regex and DECISIONS.md.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=get_settings().cors_allow_origin_regex,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
 )
 
 # Phase 1 job store. Bounded only by process lifetime; Phase 2 moves this to Redis.
@@ -108,7 +120,37 @@ async def analyze(file: UploadFile = File(...)) -> AnalysisReport:
         raise HTTPException(status_code=500, detail="analysis failed") from exc
 
     _JOBS[job_id] = report
+
+    # Best-effort: an unreachable cache degrades to "not cached today", not to
+    # a failed response for an analysis the caller already waited on.
+    hash_cache.cache_report(
+        report.provenance.phash,
+        report.model_dump(mode="json"),
+        datetime.fromisoformat(report.ttl_expires_at),
+    )
+
     return report
+
+
+@app.post("/v1/analyze/hash", response_model=AnalysisReport)
+def analyze_by_hash(request: AnalyzeByHashRequest) -> AnalysisReport:
+    """Look up a previously computed report by perceptual hash.
+
+    Lets a caller check "has this already been analysed?" before uploading
+    anything -- the point of computing the hash client-side in the first
+    place. A miss and an unreachable cache both read as 404 to the caller:
+    the caller's job either way is to fall back to a real upload, not to
+    distinguish "no" from "couldn't ask".
+    """
+    try:
+        cached = hash_cache.lookup(request.phash)
+    except hash_cache.HashCacheUnavailable:
+        cached = None
+
+    if cached is None:
+        raise HTTPException(status_code=404, detail="no cached report for this hash")
+
+    return AnalysisReport.model_validate(cached)
 
 
 @app.get("/v1/analyze/{job_id}", response_model=AnalysisReport)

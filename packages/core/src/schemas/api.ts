@@ -19,9 +19,15 @@ export const AnalyzeJobStatusResponseSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("failed"), error: z.string() }),
 ]);
 
-/** POST /v1/analyze/hash */
+/**
+ * POST /v1/analyze/hash
+ *
+ * Exactly what phash() produces on the server: 64 bits as lowercase hex.
+ * Constrained here too so a malformed client-computed hash is caught before
+ * the request even leaves the browser, not just at the API boundary.
+ */
 export const AnalyzeByHashRequestSchema = z.object({
-  phash: z.string(),
+  phash: z.string().regex(/^[0-9a-f]{16}$/),
 });
 
 /** GET /v1/health */
