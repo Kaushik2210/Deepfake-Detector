@@ -23,7 +23,9 @@ FastAPI service running the detection pipeline. As of Phase 4 it handles both **
 | `POST /v1/analyze`, `GET /v1/analyze/{job_id}`, `GET /v1/health` | ✅ |
 | Second ensemble backbone | ⚠️ machinery built, no suitable model — see `LICENSES.md` |
 | Lip-sync / audio-visual desync | ⚠️ not implemented, licence-blocked — see `LICENSES.md` |
-| Audio pipeline, `POST /v1/analyze/hash` | ❌ later phases |
+| Perceptual-hash cache, `POST /v1/analyze/hash` | ✅ |
+| CORS for the Chrome extension (`chrome-extension://` origins) | ✅ |
+| Audio pipeline | ❌ later phase |
 
 ## Setup
 
@@ -139,3 +141,7 @@ Environment variables, all prefixed `VERIFRAME_` (see `app/config.py`):
 | `VERIFRAME_VIDEO_SPARSE_HEATMAP_TOP_K` | `3` | How many sampled frames get a Grad-CAM heatmap |
 | `VERIFRAME_VIDEO_DENSE_WINDOW_MAX_SECONDS` | `12` | Stream C's dense-window length |
 | `VERIFRAME_VIDEO_DENSE_WINDOW_TARGET_FPS` | `25` | Stream C's dense-window sampling rate |
+| `VERIFRAME_DATABASE_URL` | `postgresql://veriframe:veriframe@localhost:5432/veriframe` | Perceptual-hash cache table |
+| `VERIFRAME_PHASH_MATCH_MAX_DISTANCE` | `10` | Max Hamming distance for a cache hit |
+| `VERIFRAME_PHASH_SCAN_LIMIT` | `500` | Bounds the linear nearest-neighbour scan |
+| `VERIFRAME_CORS_ALLOW_ORIGIN_REGEX` | `^(chrome-extension://.*\|https?://localhost(:\d+)?)$` | Origins allowed to call this service directly (the extension) |

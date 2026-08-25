@@ -59,7 +59,7 @@ docker compose up -d      # Postgres, Redis, MinIO
 pnpm typecheck && pnpm lint && pnpm test
 ```
 
-Copy `.env.example` to `.env` and fill in values before running any service. The inference service has its own Python toolchain — see [`services/inference/README.md`](./services/inference/README.md) for setup, exactly how a score is produced, and the full configuration reference; [`apps/web/README.md`](./apps/web/README.md) covers the web app's data flow and retention model.
+Copy `.env.example` to `.env` and fill in values before running any service. The inference service has its own Python toolchain — see [`services/inference/README.md`](./services/inference/README.md) for setup, exactly how a score is produced, and the full configuration reference; [`apps/web/README.md`](./apps/web/README.md) covers the web app's data flow and retention model; [`apps/extension/README.md`](./apps/extension/README.md) covers the Chrome extension.
 
 ## Project status
 

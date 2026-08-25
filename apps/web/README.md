@@ -16,7 +16,9 @@ Next.js 15 app: upload an image or a short video, get an evidence-backed report.
 | Deletion endpoint (DPDP / GDPR) | ✅ |
 | Privacy policy page | ✅ |
 | Clerk auth | ⚠️ wired, runs in dev-bypass without keys |
-| Audio, extension, hash-cache lookup | ❌ later phases |
+| Audio | ❌ later phase |
+
+Chrome extension and hash-cache lookup are built — see `apps/extension/README.md`.
 
 ## Running it
 
