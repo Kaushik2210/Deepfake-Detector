@@ -9,6 +9,11 @@ build/
 .turbo/
 *.tsbuildinfo
 
+# WXT (Chrome extension) build outputs and generated types
+apps/extension/.output/
+apps/extension/.wxt/
+*.zip
+
 # python
 __pycache__/
 *.pyc

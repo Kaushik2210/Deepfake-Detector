@@ -2,6 +2,18 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-08-25 — Extension network calls route through the background worker, never the content script
+
+A content script's `fetch()` is subject to the *hosting page's* Content-Security-Policy `connect-src` directive, not the extension's own — a page that locks down outbound requests would silently break analysis on exactly the pages where it fires. `chrome.runtime.sendMessage` to the background service worker sidesteps this entirely, since the service worker's fetches are governed by the extension's own manifest, not the page it happens to be injected into. Every network call (`/v1/analyze`, `/v1/analyze/hash`) is issued from `background.ts`; the content script and offscreen document only ever talk to the background worker over the extension's internal messaging.
+
+## 2026-08-25 — Video frame capture needs an offscreen document; images don't
+
+`chrome.offscreen.createDocument()` exists because MV3 service workers have no DOM — no `<canvas>`, no `<video>`. Images are captured directly in the content script, which already has DOM access to the page's `<img>`/`<canvas>` elements. Video needs a fresh, isolated `<video>` element to seek to a timestamp and decode a frame, which only a document context (offscreen or content script) can provide; the offscreen document was chosen over doing it in the content script so a broken or slow decode can't be attributed to, or interfered with by, the host page's own DOM. The `BLOBS` offscreen reason was used (not `USER_MEDIA` or `DOM_SCRAPING`) after checking Chrome's own documentation directly rather than trusting a search summary — `BLOBS` is documented for exactly this "decode media data off the main thread" use, the other two describe different capabilities (live camera/mic access, reading page content).
+
+## 2026-08-25 — Perceptual hash computed client-side before any upload decision
+
+`packages/core/src/phash.ts` ports the same DCT-II pHash the inference service already computes server-side (`services/inference/app/pipeline/phash.py`), verified against golden values across both implementations. The extension hashes the captured image/frame locally and calls `/v1/analyze/hash` first; a Hamming-distance hit against the server's cache means the user gets a result without ever uploading the media. This is a privacy property, not just a cache optimisation — it's what makes "no background upload without explicit per-item action" and "check cache before uploading" the same design rather than two separate promises to keep in sync.
+
 ## 2026-08-22 — Lip-sync deferred: same licence-blocker pattern as the Phase 3 second backbone
 
 Stream C's spec calls for Wav2Lip-style audio-visual desync scoring. Wav2Lip's weights are non-commercial, trained on the BBC-licensed LRS2 corpus. The natural alternative, SyncNet (`joonson/syncnet_python`), has MIT-licensed code but undocumented weights from the same Oxford VGG lineage that produced Wav2Lip's restriction — the same "no license, adjacent to a known-restricted corpus" red flag that got a candidate rejected in Phase 1. Neither was adopted; lip-sync is not implemented in Phase 4. Recorded in `LICENSES.md`.

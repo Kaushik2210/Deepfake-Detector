@@ -142,7 +142,11 @@ export function hammingDistance(a: string, b: string): number {
  * the server's hash on the same image.
  */
 export function grayscaleGridFromCanvas(
-  ctx: CanvasRenderingContext2D,
+  // Accepts either a normal <canvas> 2D context (content script, offscreen
+  // document) or an OffscreenCanvas one (background service worker, which has
+  // no `document` but does have OffscreenCanvas) -- both implement the same
+  // drawImage/getImageData surface this function actually uses.
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   source: CanvasImageSource,
   size: number = DCT_SIZE,
 ): Float64Array {

@@ -1,0 +1,10 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    // WXT's generated config omits this: Vite's own build handles JSX
+    // transform internally (so `wxt build` works without it), but a plain
+    // `tsc --noEmit` typecheck goes through neither Vite nor esbuild and
+    // needs the compiler option set explicitly.
+    "jsx": "react-jsx"
+  }
+}
