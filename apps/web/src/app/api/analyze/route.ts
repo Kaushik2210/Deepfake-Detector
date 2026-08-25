@@ -16,7 +16,15 @@ const ACCEPTED_VIDEO = new Set([
   "video/webm",
   "video/x-matroska",
 ]);
-const ACCEPTED = new Set([...ACCEPTED_IMAGE, ...ACCEPTED_VIDEO]);
+const ACCEPTED_AUDIO = new Set([
+  "audio/wav",
+  "audio/x-wav",
+  "audio/flac",
+  "audio/x-flac",
+  "audio/ogg",
+  "audio/mpeg",
+]);
+const ACCEPTED = new Set([...ACCEPTED_IMAGE, ...ACCEPTED_VIDEO, ...ACCEPTED_AUDIO]);
 
 export async function POST(request: Request) {
   const userId = await currentUserId();
@@ -53,7 +61,12 @@ export async function POST(request: Request) {
   }
 
   const isVideo = ACCEPTED_VIDEO.has(file.type);
-  const sizeLimit = isVideo ? env.MAX_VIDEO_BYTES : env.MAX_UPLOAD_BYTES;
+  const isAudio = ACCEPTED_AUDIO.has(file.type);
+  const sizeLimit = isVideo
+    ? env.MAX_VIDEO_BYTES
+    : isAudio
+      ? env.MAX_AUDIO_BYTES
+      : env.MAX_UPLOAD_BYTES;
 
   if (file.size > sizeLimit) {
     return NextResponse.json(

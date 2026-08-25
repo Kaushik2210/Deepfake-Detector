@@ -1,22 +1,22 @@
 # VeriFrame Web App
 
-Next.js 15 app: upload an image or a short video, get an evidence-backed report.
+Next.js 15 app: upload an image, a short video, or an audio clip, get an evidence-backed report.
 
 ## What runs today
 
 | Piece | Status |
 |---|---|
 | Upload with explicit per-item consent | ✅ |
-| Image or video upload (video: ≤60s, ≤100MB) | ✅ |
+| Image, video (≤60s, ≤100MB), or audio (≤5min, ≤25MB) upload | ✅ |
 | Group photos: per-face results + plain-language conclusion | ✅ |
 | Video: per-frame results, score timeline, temporal-signal evidence | ✅ |
+| Audio: anti-spoofing score + spectrogram evidence | ✅ |
 | Job queue (BullMQ) + standalone worker | ✅ |
-| Report page with heatmap, bands, envelope | ✅ |
+| Report page with heatmap/spectrogram, bands, envelope | ✅ |
 | Media TTL sweep (default 24h) | ✅ |
 | Deletion endpoint (DPDP / GDPR) | ✅ |
 | Privacy policy page | ✅ |
 | Clerk auth | ⚠️ wired, runs in dev-bypass without keys |
-| Audio | ❌ later phase |
 
 Chrome extension and hash-cache lookup are built — see `apps/extension/README.md`.
 

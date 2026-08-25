@@ -86,7 +86,10 @@ export function FaceFindings({
   unit = "face",
 }: {
   faces: FaceFinding[];
-  unit?: "face" | "frame";
+  // "clip" is accepted for type parity with ReportView's shared `unit` value;
+  // audio reports always have an empty `faces` array, so the early return
+  // below means this component never actually renders with it.
+  unit?: "face" | "frame" | "clip";
 }) {
   if (faces.length === 0) return null;
 

@@ -21,7 +21,8 @@ export function ReportView({ report }: { report: AnalysisReport }) {
 
   const faces = report.faces ?? [];
   const isVideo = report.media_meta.kind === "video";
-  const unit = isVideo ? "frame" : "face";
+  const isAudio = report.media_meta.kind === "audio";
+  const unit = isVideo ? "frame" : isAudio ? "clip" : "face";
 
   return (
     <div className="space-y-5">
@@ -142,6 +143,22 @@ export function ReportView({ report }: { report: AnalysisReport }) {
                           />
                           <figcaption className="mt-1 text-xs text-slate-500">
                             {artifact.label}. Warmer regions contributed more to the score.
+                          </figcaption>
+                        </figure>
+                      );
+                    }
+
+                    if (artifact.type === "spectrum_plot") {
+                      return (
+                        <figure key={index}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={artifact.url}
+                            alt={artifact.label}
+                            className="w-full max-w-xl rounded border border-slate-200"
+                          />
+                          <figcaption className="mt-1 text-xs text-slate-500">
+                            {artifact.label}.
                           </figcaption>
                         </figure>
                       );

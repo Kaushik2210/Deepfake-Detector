@@ -11,8 +11,11 @@ export function ConclusionPanel({
   conclusion: Conclusion;
   /** "frame" for a video's per-frame findings, "face" for an image's faces.
    * Cosmetic only -- the underlying field names describe the same counts
-   * either way, a sampled frame's primary face being the unit of analysis. */
-  unit?: "face" | "frame";
+   * either way, a sampled frame's primary face being the unit of analysis.
+   * "clip" is accepted for type parity with ReportView's shared `unit` value,
+   * but audio reports never have a conclusion, so this component never
+   * actually renders with it. */
+  unit?: "face" | "frame" | "clip";
 }) {
   const { faces_analyzed: analyzed, faces_elevated: elevated } = conclusion;
 

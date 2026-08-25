@@ -5,7 +5,21 @@ import { useState } from "react";
 
 const ACCEPTED_IMAGE = ["image/jpeg", "image/png", "image/webp", "image/bmp"];
 const ACCEPTED_VIDEO = ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska"];
-const ACCEPTED = [...ACCEPTED_IMAGE, ...ACCEPTED_VIDEO];
+const ACCEPTED_AUDIO = [
+  "audio/wav",
+  "audio/x-wav",
+  "audio/flac",
+  "audio/x-flac",
+  "audio/ogg",
+  "audio/mpeg",
+];
+const ACCEPTED = [...ACCEPTED_IMAGE, ...ACCEPTED_VIDEO, ...ACCEPTED_AUDIO];
+
+function mediaKindLabel(type: string): "video" | "audio" | "image" {
+  if (ACCEPTED_VIDEO.includes(type)) return "video";
+  if (ACCEPTED_AUDIO.includes(type)) return "audio";
+  return "image";
+}
 
 export function UploadForm({ ttlHours }: { ttlHours: number }) {
   const router = useRouter();
@@ -58,10 +72,12 @@ export function UploadForm({ ttlHours }: { ttlHours: number }) {
               </>
             ) : (
               <>
-                Choose an image (JPEG, PNG, WebP, BMP) or a short video
+                Choose an image, a short video, or an audio clip
                 <br />
                 <span className="text-xs text-slate-500">
-                  Video: MP4, MOV, WebM, or MKV, up to 60 seconds and 100 MB
+                  Image: JPEG, PNG, WebP, or BMP · Video: MP4, MOV, WebM, or MKV,
+                  up to 60 seconds and 100 MB · Audio: WAV, FLAC, OGG, or MP3, up
+                  to 5 minutes and 25 MB
                 </span>
               </>
             )}
@@ -111,7 +127,7 @@ export function UploadForm({ ttlHours }: { ttlHours: number }) {
       >
         {submitting
           ? "Uploading…"
-          : `Analyse this ${file && ACCEPTED_VIDEO.includes(file.type) ? "video" : "image"}`}
+          : `Analyse this ${file ? mediaKindLabel(file.type) : "image"}`}
       </button>
     </form>
   );
