@@ -20,12 +20,12 @@ Tracks licensing for every third-party dataset, pretrained model, and detection-
 
 Used only by `services/inference/eval/`. They contribute no weights and no code to the shipped product — only numbers in a report. Neither is committed to this repository; both are streamed from the Hugging Face hub at eval time.
 
-Audio's calibration/reporting split pair (once the audio eval harness is built) follows the same pattern:
+Audio's calibration/reporting split pair (built in Phase 6 stage 2, see `services/inference/eval/`) is, unusually, commercially clean on *both* sides — no non-commercial eval-only caveat needed the way `pujanpaudel/deepfake_face_classification` requires for images:
 
 | Name | License | Commercial use? | Role | Notes |
 |---|---|---|---|---|
-| [ASVspoof2019](https://datashare.ed.ac.uk/handle/10283/3336) LA | ODC-By (Open Data Commons Attribution) | ✅ Yes | Calibration split | Verified from the dataset's own `LICENSE_text.txt`, which explicitly states commercial use is included ("do not exclude any field of endeavour"). The same corpus AASIST was trained on, so this measures in-distribution performance, not generalisation. |
-| [ASVspoof2021](https://www.asvspoof.org/) DF/LA | CC BY-NC 4.0 | ⚠️ **No** | Reporting split | Non-commercial, evaluation-only use — the same treatment `pujanpaudel/deepfake_face_classification` gets for images (see below). Different attack algorithms and codec conditions than 2019, so this is the honest cross-dataset check. |
+| [ASVspoof2019](https://datashare.ed.ac.uk/handle/10283/3336) LA | ODC-By (Open Data Commons Attribution) | ✅ Yes | Calibration split | Verified two ways: the dataset's own `LICENSE_text.txt` at its original DataShare host ("do not exclude any field of endeavour"), and the Zenodo API's structured `license.id: "odc-by"`. The same corpus AASIST was trained on, so this measures in-distribution performance, not generalisation. |
+| [ASVspoof2021](https://zenodo.org/records/4837263) LA / [DF](https://zenodo.org/records/4835108) | ODC-By (LA) / ODbL (DF) | ✅ Yes | Reporting split | **A search-engine summary initially reported this as CC BY-NC 4.0 — wrong, and corrected before the harness was built on top of it.** Verified via the Zenodo API's own structured metadata (`license.id`), not a page summary: `odc-by` for LA, `odc-odbl` for DF. ODbL permits commercial use but requires derivative *databases* to stay ODbL (share-alike) if redistributed — not a constraint on using it for evaluation and reporting a score, which is all this harness does. Different attack algorithms and codec/transmission conditions than 2019, so this is the honest cross-dataset check. |
 
 | Name | License | Commercial use? | Role | Notes |
 |---|---|---|---|---|

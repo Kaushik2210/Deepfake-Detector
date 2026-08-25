@@ -2,6 +2,10 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-08-25 — A web-search summary claimed ASVspoof2021 was non-commercial; the primary source disagreed
+
+While scoping the audio eval harness's cross-dataset reporting split, an initial web search reported ASVspoof2021 as CC BY-NC 4.0 (non-commercial) — plausible, and it briefly went into `LICENSES.md` that way. Before building the harness on top of that claim, the actual host was checked directly: Zenodo's own structured record metadata (`GET /api/records/<id>`, not a rendered-page summary) gives `license.id: "odc-by"` for the LA database and `"odc-odbl"` for DF, both commercial-friendly, matching ASVspoof2019's family. The `LICENSES.md` entry was corrected before the harness was written, not after — the search summary was likely conflating this with a different, genuinely non-commercial audio corpus (several exist, e.g. the "In the Wild" set surveyed alongside it, which turned out to have no findable license at all). Same habit as the earlier `chrome.offscreen` reason lookup in Phase 5: an AI-generated answer describing a licence or API contract is a claim to check against the primary source, not a fact to act on.
+
 ## 2026-08-25 — Audio's classifier is vendored research code, not a `transformers` checkpoint
 
 Every model wired into this codebase so far (`prithivMLmods/Deep-Fake-Detector-v2-Model`, YuNet, MediaPipe FaceLandmarker) loads through a library's own `from_pretrained`-style API. AASIST doesn't: it's a peer-reviewed graph-attention architecture (Jung et al., ICASSP 2022) published as plain research code with no PyPI package, so `app/models/aasist.py` vendors the ~400-line model definition directly from NAVER/Clova AI's repository (MIT license, verified from the repo's own root `LICENSE` file — see `LICENSES.md`) rather than reimplementing it or accepting a weaker but more conveniently-packaged community fine-tune.
