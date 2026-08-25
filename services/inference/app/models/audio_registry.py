@@ -23,11 +23,20 @@ from app.models.aasist import AASIST_CONFIG, AasistModel
 
 _LOAD_LOCK = threading.Lock()
 
-# AASIST's own output head is a 2-way logit: index 0 = bonafide, index 1 = spoof
-# -- fixed by how the upstream checkpoint was trained (main.py's
-# produce_evaluation_file reads batch_out[:, 1] as the spoof score), not
-# something to infer from a label map the way Stream A does.
-_SPOOF_LOGIT_INDEX = 1
+# AASIST's own output head is a 2-way logit. Fixed by how the upstream
+# checkpoint was TRAINED, not inferred or guessed: data_utils.py's genSpoof_list
+# builds its label dict with `1 if label == "bonafide" else 0`, so the model was
+# trained with label 1 = bonafide, label 0 = spoof (this is also the standard
+# ASVspoof CM-score convention -- a countermeasure score in this research
+# community means "how bonafide", high = genuine, matching ASV score
+# direction). An earlier version of this constant had index 1 = spoof, taken
+# from an AI-generated summary of the eval script that turned out to be a wrong
+# paraphrase; caught by the eval harness's audio-2026-08-25 report showing a
+# suspiciously perfect but inverted AUC of 0.0 on the training corpus (mean
+# score 0.017 on spoof samples, 0.998 on bonafide -- the classifier was working
+# extremely well, just labelled backwards), then confirmed against the actual
+# training code before fixing. See DECISIONS.md.
+_SPOOF_LOGIT_INDEX = 0
 
 
 @dataclass
