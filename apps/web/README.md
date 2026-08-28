@@ -17,6 +17,8 @@ Next.js 15 app: upload an image, a short video, or an audio clip, get an evidenc
 | Deletion endpoint (DPDP / GDPR) | ✅ |
 | Privacy policy page | ✅ |
 | Clerk auth | ⚠️ wired, runs in dev-bypass without keys |
+| Rate limiting on `/api/analyze` (per authenticated user) | ✅ |
+| Accessible UI: shadcn/ui on Radix primitives, drag-and-drop upload, skip link, live regions | ✅ |
 
 Chrome extension and hash-cache lookup are built — see `apps/extension/README.md`.
 

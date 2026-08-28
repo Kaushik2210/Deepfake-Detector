@@ -74,9 +74,9 @@ Built in reviewed phases, each stopped and verified before the next begins:
 - [x] **Phase 2** — Web app: upload, job queue, evidence-backed report page, auth, retention
 - [x] **Phase 3** — Streams B & D, weighted fusion, the evaluation harness and first real numbers
 - [x] **Phase 4** — Video: frame sampling, Stream C, per-frame timeline
-- [ ] **Phase 5** — Chrome extension *(in progress)*
-- [ ] **Phase 6** — Audio pipeline *(in progress)*
-- [ ] **Phase 7** — Hardening: rate limiting, abuse prevention, Web Store submission
+- [x] **Phase 5** — Chrome extension
+- [x] **Phase 6** — Audio pipeline: AASIST anti-spoofing, evaluation harness, web app support
+- [ ] **Phase 7** — Hardening: rate limiting and abuse prevention done; Web Store submission still open *(in progress)*
 
 Full phase definitions in [`CLAUDE.md`](./CLAUDE.md#build-phases).
 
