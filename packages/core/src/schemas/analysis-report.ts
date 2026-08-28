@@ -10,7 +10,8 @@ export const StreamNameSchema = z.enum([
   "frequency", // Stream B: frequency/signal forensics
   "temporal", // Stream C: temporal & biological (video)
   "provenance", // Stream D: provenance & metadata
-  "audio", // audio anti-spoofing pipeline
+  "audio", // audio anti-spoofing pipeline (AASIST)
+  "audio_frequency", // audio's own harmonics-to-noise-ratio measurement -- see DECISIONS.md
 ]);
 
 export const ArtifactSchema = z.discriminatedUnion("type", [

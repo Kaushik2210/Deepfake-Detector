@@ -11,7 +11,9 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 MediaKind = Literal["image", "video", "audio"]
-StreamName = Literal["spatial", "frequency", "temporal", "provenance", "audio"]
+StreamName = Literal[
+    "spatial", "frequency", "temporal", "provenance", "audio", "audio_frequency"
+]
 BandId = Literal["low", "weak", "mixed", "strong", "very_strong"]
 
 

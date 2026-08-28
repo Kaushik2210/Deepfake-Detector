@@ -33,7 +33,7 @@ An upload goes through up to four independent evidence streams, fused with weigh
 
 A valid, trusted C2PA manifest or a generator naming itself in metadata overrides the statistical streams outright — cryptographic and recorded facts beat inference from pixels. Stream C has no fusion weight yet: no video-labelled evaluation dataset exists to derive one from, so its four signals are reported as supporting evidence but cannot move the reported score, exactly the treatment Stream B had before it was calibrated.
 
-Audio uploads run through a separate pipeline: **AASIST**, a graph-attention anti-spoofing network (MIT-licensed, [NAVER/Clova AI](https://github.com/clovaai/aasist)), with a spectrogram shipped as evidence alongside every score.
+Audio uploads run through a separate pipeline: **AASIST**, a graph-attention anti-spoofing network (MIT-licensed, [NAVER/Clova AI](https://github.com/clovaai/aasist)), fused with a second, hand-derived stream — a harmonics-to-noise-ratio measurement designed for this project, not ported from anywhere — with a spectrogram shipped as evidence alongside every score.
 
 ## The honest evaluation
 
@@ -41,7 +41,7 @@ Every accuracy figure quoted anywhere in the product comes from `services/infere
 
 The most recent image run (n=1200 per corpus) reported spatial-stream AUC of **0.663** and frequency-stream AUC of **0.589** on the held-out split — both far short of anything worth marketing, and reported anyway. Read the full write-up, including a real discrepancy the protocol surfaced between validation and cross-dataset performance, in [`services/inference/eval/README.md`](./services/inference/eval/README.md) and the dated reports alongside it.
 
-The audio run (n=60 per corpus, smaller — see the report for why) reported cross-dataset AUC of **0.962** (EER 6.5%) on ASVspoof2021, having been calibrated on ASVspoof2019. Held out for genuine caution regardless of the strong number: both corpora are studio-adjacent TTS/voice-conversion attacks, not the phone calls and voice notes real-world audio actually arrives as — see [`services/inference/eval/reports/audio-2026-08-25.md`](./services/inference/eval/reports/audio-2026-08-25.md).
+The audio run (n=60 per corpus, smaller — see the report for why) reported cross-dataset AUC of **0.962** for AASIST alone on ASVspoof2021, having been calibrated on ASVspoof2019 — but fusing in the second stream, at the weight the same measured-not-hand-picked process gives it, **reduced** that to **0.933**. The second stream measures real signal in-distribution (0.907 AUC) but generalises worse (0.685) than AASIST does, the identical validation/cross-dataset disagreement Phase 3 found in the image pipeline, now confirmed independently in a second modality. The weight ships as measured anyway, following that same precedent, rather than being hand-corrected to flatter the number — see [`services/inference/eval/reports/audio-2026-08-28.md`](./services/inference/eval/reports/audio-2026-08-28.md) and `DECISIONS.md`. Both corpora are studio-adjacent TTS/voice-conversion attacks either way, not the phone calls and voice notes real-world audio actually arrives as.
 
 ## Structure
 

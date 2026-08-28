@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -104,6 +106,29 @@ def test_health_reports_audio() -> None:
     assert "audio" in body["model_versions"]
 
 
+@pytest.mark.redis
+def test_analyze_hash_returns_429_past_the_rate_limit(monkeypatch) -> None:
+    from app.config import get_settings
+    from app.pipeline import rate_limit
+
+    monkeypatch.setattr(get_settings(), "rate_limit_hash_per_minute", 2)
+    # Only this test's own keys -- a flushdb() would nuke whatever else shares
+    # this Redis instance in a dev environment (e.g. the web app's BullMQ).
+    for key in rate_limit._client().scan_iter("ratelimit:analyze_hash:*"):
+        rate_limit._client().delete(key)
+
+    # A random hash, not a degenerate one like "0"*16 -- a smooth/gradient
+    # test image's real computed phash can land suspiciously close to
+    # all-zero (low DCT-coefficient variance), which has caused a real
+    # false-positive near-match against accumulated dev-DB test data before.
+    body = {"phash": uuid.uuid4().hex[:16]}
+    responses = [client.post("/v1/analyze/hash", json=body) for _ in range(3)]
+
+    assert [r.status_code for r in responses[:2]] == [404, 404]
+    assert responses[2].status_code == 429
+    assert "Retry-After" in responses[2].headers
+
+
 @pytest.mark.model
 def test_full_report_shape_for_audio(sine_wave_wav) -> None:
     raw = sine_wave_wav(duration_seconds=3.0)
@@ -112,8 +137,7 @@ def test_full_report_shape_for_audio(sine_wave_wav) -> None:
 
     body = response.json()
     assert body["media_meta"]["kind"] == "audio"
-    assert len(body["streams"]) == 1
-    assert body["streams"][0]["name"] == "audio"
+    assert {s["name"] for s in body["streams"]} == {"audio", "audio_frequency"}
 
 
 def test_cors_allows_a_chrome_extension_origin() -> None:

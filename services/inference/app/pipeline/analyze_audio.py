@@ -1,11 +1,13 @@
 """Audio analysis orchestrator: bytes in, AnalysisReport out.
 
-Structurally the audio counterpart of analyze_image, but simpler: one stream
-(no frequency/provenance/temporal analogue exists for audio yet), no per-item
+Structurally the audio counterpart of analyze_image, but simpler: no per-item
 findings (there is no "face" unit here -- see AnalysisReportSchema's own
 comment that ``faces`` is empty "for media where faces are not the unit of
 analysis"), so this mirrors analyze_image's own no-face fallback path rather
-than its per-face loop.
+than its per-face loop. Two streams as of Phase 7: AASIST (trained classifier)
+and an unsupervised harmonics-to-noise-ratio measurement (this project's own,
+not ported from anywhere -- see audio_frequency.py and DECISIONS.md), fused
+the same way analyze_image fuses spatial and frequency.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from app.bands import report_footer_disclaimer, score_to_band
 from app.config import get_settings
 from app.models.audio_registry import get_audio_model, score_waveform
 from app.pipeline import audio_envelope
+from app.pipeline import audio_frequency as audio_frequency_mod
 from app.pipeline import fusion as fusion_mod
 from app.pipeline.audio_io import decode_audio, prepare_for_model
 from app.pipeline.audio_spectrogram import render_spectrogram
@@ -42,14 +45,11 @@ def _apply_confidence(raw_score: float, confidence: float) -> float:
     return 0.5 + (raw_score - 0.5) * confidence
 
 
-def _uncertainty_band(score: float, confidence: float) -> tuple[float, float]:
-    """Widen a point score into an interval from how far outside the envelope it sits.
-
-    There is only one stream, so there is no cross-stream disagreement to widen
-    with the way the fused image/video score has -- the envelope confidence is
-    the only uncertainty source available here.
-    """
-    half_width = (1.0 - confidence) * 0.5
+def _uncertainty_band(score: float, spread: float, confidence: float) -> tuple[float, float]:
+    """Widen a point score into an interval: cross-stream disagreement plus how
+    far outside the envelope the input sits, the same two contributions
+    analyze_image's version uses."""
+    half_width = spread * 2.0 + (1.0 - confidence) * 0.5
     return (
         round(max(0.0, score - half_width), 4),
         round(min(1.0, score + half_width), 4),
@@ -83,38 +83,66 @@ def analyze_audio(
     model_input = prepare_for_model(
         waveform, sample_rate, settings.audio_target_sample_rate, settings.audio_target_samples
     )
-    raw_score = round(score_waveform(audio_model, model_input), 4)
-
-    weight = fusion_mod.stream_weights().get("audio", 1.0)
+    aasist_score = round(score_waveform(audio_model, model_input), 4)
 
     spectrogram_path = render_spectrogram(waveform, sample_rate, settings.artifact_dir)
+    spectrogram_artifact = SpectrumPlotArtifact(
+        label="Spectrogram (magnitude, dB)",
+        url=f"{settings.artifact_base_url}/{spectrogram_path.name}",
+    )
 
-    artifacts = [
-        SpectrumPlotArtifact(
-            label="Spectrogram (magnitude, dB)",
-            url=f"{settings.artifact_base_url}/{spectrogram_path.name}",
-        ),
-        NoteArtifact(
-            label="Model",
-            detail=(
-                f"AASIST graph-attention anti-spoofing network, trained on ASVspoof2019 "
-                f"LA. Raw spoof probability: {raw_score}."
+    audio_stream = StreamResult(
+        name="audio",
+        score=aasist_score,
+        weight=round(fusion_mod.stream_weights().get("audio", 1.0), 4),
+        models=[audio_model.version_string],
+        artifacts=[
+            spectrogram_artifact,
+            NoteArtifact(
+                label="Model",
+                detail=(
+                    "AASIST graph-attention anti-spoofing network, trained on "
+                    f"ASVspoof2019 LA. Raw spoof probability: {aasist_score}."
+                ),
             ),
-        ),
-    ]
+        ],
+    )
 
-    streams = [
-        StreamResult(
-            name="audio",
-            score=raw_score,
-            weight=round(weight, 4),
-            models=[audio_model.version_string],
-            artifacts=artifacts,
+    freq_result = audio_frequency_mod.measure(waveform, sample_rate)
+    freq_artifacts: list = [
+        NoteArtifact(label="Frequency analysis", detail=note) for note in freq_result.notes
+    ]
+    freq_artifacts.append(
+        NoteArtifact(
+            label="Measurements",
+            detail=", ".join(f"{k} {v}" for k, v in freq_result.measurements.items()),
         )
-    ]
+    )
+    frequency_stream = StreamResult(
+        name="audio_frequency",
+        score=freq_result.score if freq_result.score is not None else 0.5,
+        weight=round(fusion_mod.stream_weights().get("audio_frequency", 0.0), 4),
+        models=["harmonics-to-noise ratio (unsupervised, no trained model)"],
+        artifacts=freq_artifacts,
+    )
 
-    score = round(min(1.0, max(0.0, _apply_confidence(raw_score, confidence))), 4)
-    lo, hi = _uncertainty_band(score, confidence)
+    streams = [audio_stream, frequency_stream]
+
+    fused = fusion_mod.fuse(
+        [
+            fusion_mod.StreamInput("audio", aasist_score),
+            fusion_mod.StreamInput(
+                "audio_frequency",
+                freq_result.score if freq_result.score is not None else 0.5,
+                available=freq_result.score is not None,
+            ),
+        ]
+    )
+    for note in fused.notes:
+        frequency_stream.artifacts.append(NoteArtifact(label="Fusion", detail=note))
+
+    score = round(min(1.0, max(0.0, _apply_confidence(fused.score, confidence))), 4)
+    lo, hi = _uncertainty_band(score, fused.disagreement, confidence)
 
     now = datetime.now(UTC)
 

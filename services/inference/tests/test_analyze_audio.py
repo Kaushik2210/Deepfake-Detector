@@ -43,17 +43,18 @@ def test_full_report_shape(sine_wave_wav) -> None:
     assert report.conclusion is None
 
 
-def test_produces_exactly_one_audio_stream(sine_wave_wav) -> None:
+def test_produces_the_aasist_and_frequency_streams(sine_wave_wav) -> None:
     raw = sine_wave_wav(duration_seconds=3.0)
     report = analyze_audio(raw, mime_type="audio/wav")
 
-    assert len(report.streams) == 1
-    stream = report.streams[0]
-    assert stream.name == "audio"
-    assert 0.0 <= stream.score <= 1.0
-    assert stream.artifacts
+    names = {s.name for s in report.streams}
+    assert names == {"audio", "audio_frequency"}
+    for stream in report.streams:
+        assert 0.0 <= stream.score <= 1.0
+        assert stream.artifacts
 
-    spectrogram_artifacts = [a for a in stream.artifacts if a.type == "spectrum_plot"]
+    audio_stream = next(s for s in report.streams if s.name == "audio")
+    spectrogram_artifacts = [a for a in audio_stream.artifacts if a.type == "spectrum_plot"]
     assert len(spectrogram_artifacts) == 1
 
 
@@ -67,4 +68,4 @@ def test_deterministic_for_the_same_input(sine_wave_wav) -> None:
     raw = sine_wave_wav(duration_seconds=3.0)
     first = analyze_audio(raw, mime_type="audio/wav")
     second = analyze_audio(raw, mime_type="audio/wav")
-    assert first.streams[0].score == second.streams[0].score
+    assert {s.name: s.score for s in first.streams} == {s.name: s.score for s in second.streams}

@@ -25,7 +25,9 @@ FastAPI service running the detection pipeline. It handles **images, short video
 | Lip-sync / audio-visual desync | ⚠️ not implemented, licence-blocked — see `LICENSES.md` |
 | Perceptual-hash cache, `POST /v1/analyze/hash` | ✅ |
 | CORS for the Chrome extension (`chrome-extension://` origins) | ✅ |
-| Audio pipeline: decode, envelope, AASIST classifier, spectrogram evidence | ✅ |
+| Audio pipeline: decode, envelope, AASIST + audio_frequency streams, spectrogram evidence | ✅ |
+| Rate limiting + abuse-pattern logging (`/v1/analyze`, `/v1/analyze/hash`) | ✅ |
+| Perceptual-hash lookup via BK-tree (was a bounded linear scan) | ✅ |
 
 ## Setup
 
@@ -120,15 +122,21 @@ Stream C's score is reported as evidence but **does not move the fused result**:
 
 ## How an audio score is produced
 
-Structurally the simplest pipeline of the three: one stream, no per-item findings (there is no "face" unit for audio).
+No per-item findings (there is no "face" unit for audio), and as of Phase 7, two streams rather than one.
 
 1. **Decode** via `soundfile` (WAV/FLAC unconditionally; OGG/MP3 depending on the platform's bundled libsndfile — confirmed working via 1.2.2's MP3 support, added in libsndfile 1.1.0), then mix to mono.
 2. **Assess the envelope** — duration relative to AASIST's fixed 4.04s input window, clipping ratio, silence ratio — and accumulate a confidence penalty the same way the image pipeline does. A clip shorter than the window is tiled (repeated) to fill it rather than rejected, but disclosed as a penalty scaled by how much repetition was needed.
 3. **Resample** to 16kHz (polyphase filter) and fit to exactly 64,600 samples (truncate if longer, tile if shorter — AASIST's own deterministic preprocessing, not a random crop).
-4. **Score** with AASIST, a graph-attention anti-spoofing network (MIT, [NAVER/Clova AI](https://github.com/clovaai/aasist)) vendored as research code rather than pip-installed, since it ships with no PyPI package. Trained on ASVspoof2019 LA.
-5. **Generate a spectrogram** (STFT magnitude, dB) as the evidence artifact — audio's equivalent of Stream B's frequency plot or Stream A's Grad-CAM heatmap.
+4. **Stream: `audio`.** AASIST, a graph-attention anti-spoofing network (MIT, [NAVER/Clova AI](https://github.com/clovaai/aasist)) vendored as research code rather than pip-installed, since it ships with no PyPI package. Trained on ASVspoof2019 LA.
+5. **Stream: `audio_frequency`.** Harmonics-to-noise ratio via autocorrelation (`audio_frequency.py`) — hand-derived for this project, not ported from anywhere: the hypothesis is that vocoder-reconstructed speech has less natural aperiodic noise than a real vocal tract produces, so spoofed audio should measure as unnaturally "clean". Confirmed in the direction hypothesised, but see the caveat below.
+6. **Fuse** the two streams (weighted by calibration-split AUC, the same mechanism every other stream in this project uses) and **generate a spectrogram** (STFT magnitude, dB) as the evidence artifact — audio's equivalent of Stream B's frequency plot or Stream A's Grad-CAM heatmap.
 
-The eval harness (`services/inference/eval/audio_run.py`) reported cross-dataset AUC of **0.962** (EER 6.5%) on ASVspoof2021 after calibrating on ASVspoof2019 — see `eval/reports/audio-2026-08-25.md`. A genuine bug was caught by this exact number during development: the classifier initially shipped with its spoof/bonafide output index inverted (sourced from a wrong AI-generated summary of the upstream eval script), which produced a perfectly-inverted AUC of 0.0 on the training corpus rather than the near-1.0 a working classifier gets there. See `DECISIONS.md`.
+The eval harness (`services/inference/eval/audio_run.py`) reported AASIST-alone cross-dataset AUC of **0.962** (EER 6.5%) on ASVspoof2021 after calibrating on ASVspoof2019. Two things worth knowing before trusting either number at face value, both documented in full in `DECISIONS.md`:
+
+- **A genuine inverted-label bug** was caught by this exact metric during development: the classifier initially shipped with its spoof/bonafide output index backwards (sourced from a wrong AI-generated summary of the upstream eval script), producing a perfectly-inverted AUC of 0.0 on the training corpus rather than the near-1.0 a working classifier gets there.
+- **Fusing `audio_frequency` in made cross-dataset AUC worse**, not better: 0.962 → 0.933. It measures real signal in-distribution (AUC 0.907 on ASVspoof2019) but generalises poorly (0.685 on ASVspoof2021) — the identical validation/cross-dataset divergence pattern Phase 3 found in the image pipeline, now confirmed as a recurring failure mode rather than a one-off. The weight is shipped as measured rather than hand-corrected, following that same precedent, but a reader should not assume this stream is a net improvement just because it exists.
+
+See `eval/reports/audio-2026-08-28.md` for the full numbers.
 
 ## Known limitation observed in Phase 1
 
@@ -164,3 +172,9 @@ Environment variables, all prefixed `VERIFRAME_` (see `app/config.py`):
 | `VERIFRAME_MAX_AUDIO_DURATION_SECONDS` | `300` | Audio duration limit; longer clips are rejected (HTTP 422) |
 | `VERIFRAME_AUDIO_SILENCE_RATIO_THRESHOLD` | `0.6` | Above this fraction of near-silent frames, a confidence penalty applies |
 | `VERIFRAME_AUDIO_CLIPPING_RATIO_THRESHOLD` | `0.001` | Above this fraction of full-scale samples, a confidence penalty applies |
+| `VERIFRAME_REDIS_URL` | `redis://localhost:6379` | Rate limiting and abuse-pattern logging store |
+| `VERIFRAME_RATE_LIMIT_ANALYZE_PER_MINUTE` | `20` | Per-IP limit on `POST /v1/analyze` |
+| `VERIFRAME_RATE_LIMIT_HASH_PER_MINUTE` | `60` | Per-IP limit on `POST /v1/analyze/hash` |
+| `VERIFRAME_RATE_LIMIT_WINDOW_SECONDS` | `60` | Fixed-window size for both limits above |
+| `VERIFRAME_ABUSE_PHASH_LOOKUP_THRESHOLD` | `10` | Repeated checks on one piece of content within the window before a warning is logged |
+| `VERIFRAME_ABUSE_PHASH_WINDOW_SECONDS` | `3600` | Window for the abuse-pattern check above |

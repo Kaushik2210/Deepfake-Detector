@@ -96,10 +96,6 @@ class Settings(BaseSettings):
     # DECISIONS.md. Wider than the ~4-6 bits recompression alone costs, chosen
     # without an empirical corpus to tune against.
     phash_match_max_distance: int = 10
-    # Bounds the naive linear scan used when no exact hash match exists. A
-    # proper approximate-nearest-neighbour index (BK-tree, LSH) is future work
-    # once the cache is large enough for this to matter.
-    phash_scan_limit: int = 500
 
     # --- Audio anti-spoofing (AASIST) ---
     # MIT license, code and weights both -- see LICENSES.md. Trained on ASVspoof2019

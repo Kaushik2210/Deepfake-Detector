@@ -63,11 +63,29 @@ class TestFindBestMatch:
 @pytest.mark.db
 class TestHashCacheDatabase:
     @pytest.fixture(autouse=True)
-    def _clean(self):
+    def _clean(self, monkeypatch):
         hash_cache.ensure_schema()
+        # The in-memory BK-tree is a process-lifetime singleton that persists
+        # across tests even though Postgres gets cleaned between them -- these
+        # tests deliberately use similar "dead..." hashes to exercise
+        # near-match logic, so a stale tree entry from an earlier test can
+        # near-match a later test's query. Reset on both sides of each test:
+        # before, so this test starts from a tree that reflects the cleaned
+        # DB; after, so the next test does too.
+        hash_cache.reset_tree()
+        # This suite shares its dev Postgres with every other test in the
+        # session (nothing else cleans up its own cached reports), so a real
+        # image's real computed phash can coincidentally land within the
+        # default max_distance=10 of a "dead..." probe hash here -- observed
+        # in practice with the no_face_png fixture. None of this class's own
+        # scenarios need more than 2 bits of tolerance, so shrinking the
+        # radius cuts that collision surface by several orders of magnitude
+        # without weakening what these tests actually verify.
+        monkeypatch.setattr(hash_cache.get_settings(), "phash_match_max_distance", 4)
         yield
         with hash_cache._connection() as conn:  # noqa: SLF001 - test cleanup only
             conn.execute("DELETE FROM phash_cache WHERE phash LIKE 'dead%'")
+        hash_cache.reset_tree()
 
     def _ttl(self, **kwargs) -> datetime:
         return datetime.now(UTC) + timedelta(**kwargs)

@@ -10,15 +10,26 @@ A client-computed hash will not bit-match a server-computed one for the same
 source file: the browser's canvas resize and OpenCV's ``INTER_AREA`` are
 different algorithms, and that is on top of whatever drift recompression or
 rescaling already cause between two copies of visually the same image. Lookup
-is therefore nearest-neighbour by Hamming distance, not exact match, bounded
-to a small recent window rather than a full table scan -- a proper
-approximate-nearest-neighbour index is future work once the cache is large
-enough for a linear scan to matter. See DECISIONS.md.
+is therefore nearest-neighbour by Hamming distance, not exact match.
+
+Nearest-neighbour search runs against an in-memory BK-tree (bktree.py) built
+from Postgres on first use in this process, rather than the bounded linear
+scan this module used before -- the "future work" its docstring used to name.
+``find_best_match``/``Candidate`` remain as a pure reference implementation,
+used by tests to cross-check the tree gives the same answer, not as the
+production lookup path anymore. See DECISIONS.md.
+
+The tree is per-process, not shared across a multi-worker deployment: a hash
+inserted by one worker is invisible to another's tree until that worker's own
+next insert. Acceptable for a best-effort convenience cache -- a miss just
+means a real upload happens instead, never a wrong answer. Exact-match lookups
+always hit Postgres directly regardless, so they are never stale.
 """
 
 from __future__ import annotations
 
 import json
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -28,6 +39,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 from app.config import get_settings
+from app.pipeline.bktree import BKTree
 from app.pipeline.phash import hamming_distance
 
 T = TypeVar("T")
@@ -81,6 +93,51 @@ class HashCacheUnavailable(RuntimeError):
     """
 
 
+# In-memory index, built from Postgres on first use in this process. Payload
+# carries ttl_expires_at alongside the report so an expired entry can be
+# filtered out at query time -- BK-trees have no efficient delete, so instead
+# of removing swept rows from the tree, stale hits are simply skipped, and the
+# tree is rebuilt wholesale (_TREE = None) if it ever needs a hard refresh.
+_TreeEntry = tuple[dict, datetime]
+_TREE: BKTree[_TreeEntry] | None = None
+_TREE_LOCK = threading.Lock()
+
+
+def reset_tree() -> None:
+    """Drop the in-memory index so the next lookup rebuilds it from Postgres.
+
+    Not called anywhere in the request path -- tests use this to keep the
+    tree in sync with data they delete directly from Postgres (bypassing
+    insert()/sweep_expired(), which are the only two things that otherwise
+    keep the tree consistent). A real deployment has no equivalent need: rows
+    only ever leave via sweep_expired(), whose lookup()-time TTL filter
+    already keeps swept-but-still-in-tree entries from being served.
+    """
+    global _TREE
+    with _TREE_LOCK:
+        _TREE = None
+
+
+def _ensure_tree() -> BKTree[_TreeEntry]:
+    global _TREE
+    with _TREE_LOCK:
+        if _TREE is not None:
+            return _TREE
+
+        tree: BKTree[_TreeEntry] = BKTree(hamming_distance)
+        with _connection() as conn:
+            conn.row_factory = dict_row
+            rows = conn.execute(
+                "SELECT phash, report, ttl_expires_at FROM phash_cache "
+                "WHERE ttl_expires_at > now()"
+            ).fetchall()
+        for row in rows:
+            tree.insert(row["phash"], (row["report"], row["ttl_expires_at"]))
+
+        _TREE = tree
+        return _TREE
+
+
 @contextmanager
 def _connection():
     settings = get_settings()
@@ -104,6 +161,13 @@ def insert(phash: str, report: dict[str, Any], ttl_expires_at: datetime) -> None
             (phash, json.dumps(report), ttl_expires_at),
         )
 
+    # Keep this process's tree in sync without a full rebuild. Only if it has
+    # already been built -- if nothing has queried yet, the next query builds
+    # it fresh from Postgres and picks this row up then anyway.
+    if _TREE is not None:
+        with _TREE_LOCK:
+            _TREE.insert(phash, (report, ttl_expires_at))
+
 
 def sweep_expired() -> int:
     """Delete cache rows past their TTL. Called lazily on lookup rather than
@@ -115,15 +179,14 @@ def sweep_expired() -> int:
 
 
 def lookup(phash: str) -> dict[str, Any] | None:
-    """Exact match first (indexed, cheap), then a bounded nearest-neighbour
-    scan over the most recent non-expired entries."""
+    """Exact match first (always hits Postgres directly, so never stale),
+    then nearest-neighbour search against the in-memory BK-tree."""
     settings = get_settings()
     ensure_schema()
     sweep_expired()
 
     with _connection() as conn:
         conn.row_factory = dict_row
-
         exact = conn.execute(
             "SELECT report FROM phash_cache WHERE phash = %s "
             "AND ttl_expires_at > now() ORDER BY created_at DESC LIMIT 1",
@@ -132,14 +195,13 @@ def lookup(phash: str) -> dict[str, Any] | None:
         if exact is not None:
             return exact["report"]
 
-        rows = conn.execute(
-            "SELECT phash, report FROM phash_cache WHERE ttl_expires_at > now() "
-            "ORDER BY created_at DESC LIMIT %s",
-            (settings.phash_scan_limit,),
-        ).fetchall()
-
-    candidates = [Candidate(hash=row["phash"], payload=row["report"]) for row in rows]
-    return find_best_match(phash, candidates, settings.phash_match_max_distance)
+    tree = _ensure_tree()
+    now = now_utc()
+    matches = tree.query(phash, settings.phash_match_max_distance)
+    live = [(distance, report) for distance, (report, ttl) in matches if ttl > now]
+    if not live:
+        return None
+    return min(live, key=lambda pair: pair[0])[1]
 
 
 def cache_report(phash: str | None, report: dict[str, Any], ttl_expires_at: datetime) -> None:

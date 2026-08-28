@@ -25,6 +25,12 @@ def _threshold_rows(entries: list[dict]) -> list[str]:
     return rows
 
 
+_STREAM_LABELS = {
+    "audio": "AASIST",
+    "audio_frequency": "harmonics-to-noise ratio (this project's own, unsupervised)",
+}
+
+
 def write_audio_report(path: Path, payload: dict) -> None:
     p = payload["provenance"]
     datasets = payload["datasets"]
@@ -99,7 +105,8 @@ def write_audio_report(path: Path, payload: dict) -> None:
     for stream, entry in cross.items():
         raw = entry["raw"]
         calibrated = entry["calibrated"]
-        add(f"### Stream: {stream}")
+        label = _STREAM_LABELS.get(stream, stream)
+        add(f"### Stream: {stream} ({label})")
         add("")
         add(f"n = {raw['n']} ({raw['n_positive']} spoof, {raw['n_negative']} bonafide)")
         add("")
@@ -131,6 +138,56 @@ def write_audio_report(path: Path, payload: dict) -> None:
                 "difficulty. This is the honest outcome of a cross-dataset protocol."
             )
         add("")
+
+    fused = payload.get("fused_cross_dataset_metrics")
+    audio_only = cross.get("audio", {}).get("raw")
+    if fused and audio_only:
+        add("## Does the second stream actually help?")
+        add("")
+        add(
+            "The whole reason `audio_frequency` (harmonics-to-noise ratio, this "
+            "project's own unsupervised measurement -- see DECISIONS.md) was added: "
+            "does fusing it with AASIST improve on AASIST alone, on the held-out "
+            "corpus? Reported honestly either way."
+        )
+        add("")
+        add("| | AASIST alone | Fused (AASIST + audio_frequency) | Δ |")
+        add("|---|---|---|---|")
+        delta_auc = fused["auc"] - audio_only["auc"]
+        delta_eer = fused["eer"] - audio_only["eer"]
+        add(
+            f"| AUC | {audio_only['auc']:.4f} | {fused['auc']:.4f} | "
+            f"{'+' if delta_auc >= 0 else ''}{delta_auc:.4f} |"
+        )
+        add(
+            f"| EER | {audio_only['eer']:.4f} | {fused['eer']:.4f} | "
+            f"{'+' if delta_eer >= 0 else ''}{delta_eer:.4f} (lower is better) |"
+        )
+        add("")
+        if delta_auc > 0:
+            add(
+                f"Fusion **improved** cross-dataset AUC by {delta_auc:.4f}. The "
+                "fusion weight below is derived entirely from calibration-split "
+                "AUC, the same way every other stream's weight in this project is "
+                "-- nothing here was hand-tuned to produce this result."
+            )
+        elif delta_auc < 0:
+            add(
+                f"Fusion **did not improve** cross-dataset AUC (Δ {delta_auc:.4f}). "
+                "AASIST alone generalises better on this corpus than the fused "
+                "score does. This is still a legitimate, reportable outcome of "
+                "the experiment, not a failure to hide -- see DECISIONS.md."
+            )
+        else:
+            add("Fusion left cross-dataset AUC unchanged.")
+        add("")
+    elif fused is None and audio_only:
+        add(
+            "## Does the second stream actually help?\n\n"
+            "_Not enough audio_frequency-scored samples on the reporting split "
+            "to answer this -- likely too many clips had no measurable "
+            "periodicity (silence, heavy noise, non-speech audio)._\n"
+        )
 
     add("## Fusion weight")
     add("")

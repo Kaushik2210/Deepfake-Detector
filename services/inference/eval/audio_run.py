@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import get_settings  # noqa: E402
 from app.models.audio_registry import get_audio_model, score_waveform  # noqa: E402
+from app.pipeline import audio_frequency as audio_frequency_mod  # noqa: E402
 from app.pipeline.audio_io import prepare_for_model  # noqa: E402
 from eval import calibrate, metrics  # noqa: E402
 from eval.audio_datasets import (  # noqa: E402
@@ -40,12 +41,14 @@ from eval.audio_report import write_audio_report  # noqa: E402
 
 REPORTS_DIR = Path(__file__).resolve().parent / "reports"
 
+STREAMS = ("audio", "audio_frequency")
+
 
 @dataclass
 class ScoredAudioSample:
     key: str
     label: int
-    score: float
+    scores: dict[str, float]
     dataset: str
 
 
@@ -76,9 +79,14 @@ def score_sample(sample: AudioSample, snr_db: float | None = None) -> ScoredAudi
         waveform, sample.sample_rate, settings.audio_target_sample_rate,
         settings.audio_target_samples,
     )
-    score = score_waveform(model, tensor)
+    scores = {"audio": score_waveform(model, tensor)}
+
+    freq_result = audio_frequency_mod.measure(waveform, sample.sample_rate)
+    if freq_result.score is not None:
+        scores["audio_frequency"] = freq_result.score
+
     return ScoredAudioSample(
-        key=sample.key, label=sample.label, score=score, dataset=sample.dataset
+        key=sample.key, label=sample.label, scores=scores, dataset=sample.dataset
     )
 
 
@@ -101,8 +109,11 @@ def _load_cached(path: Path) -> dict[str, ScoredAudioSample]:
                 continue
             try:
                 row = json.loads(line)
+                # Older cache files (before the audio_frequency stream existed)
+                # wrote a single "score" field; read those as audio-only.
+                scores = row["scores"] if "scores" in row else {"audio": row["score"]}
                 cached[row["key"]] = ScoredAudioSample(
-                    key=row["key"], label=row["label"], score=row["score"], dataset=row["dataset"]
+                    key=row["key"], label=row["label"], scores=scores, dataset=row["dataset"]
                 )
             except (json.JSONDecodeError, KeyError):
                 continue
@@ -140,7 +151,7 @@ def run_dataset(
                         {
                             "key": scored.key,
                             "label": scored.label,
-                            "score": scored.score,
+                            "scores": scored.scores,
                             "dataset": scored.dataset,
                         }
                     )
@@ -162,10 +173,55 @@ def run_dataset(
     return run
 
 
-def _arrays(run: AudioDatasetRun) -> tuple[np.ndarray, np.ndarray]:
-    labels = np.array([s.label for s in run.samples])
-    scores = np.array([s.score for s in run.samples])
-    return labels, scores
+def _arrays(run: AudioDatasetRun, stream: str) -> tuple[np.ndarray, np.ndarray]:
+    """Labels and scores for one stream, dropping samples it could not score
+    (audio_frequency has no score for a clip with no measurable periodicity)."""
+    labels: list[int] = []
+    scores: list[float] = []
+    for sample in run.samples:
+        value = sample.scores.get(stream)
+        if value is None:
+            continue
+        labels.append(sample.label)
+        scores.append(value)
+    return np.array(labels), np.array(scores)
+
+
+def _fused_scores(
+    run: AudioDatasetRun, weights: dict[str, float]
+) -> tuple[np.ndarray, np.ndarray]:
+    """Per-sample fused score using this run's own just-derived weights.
+
+    Not fusion.fuse() itself: that function reads weights from
+    packages/core/src/calibration.json on disk, which is exactly the file this
+    run may not have written to yet (only does with --write-calibration) --
+    using it here would mean evaluating against whatever weights happened to
+    already be on disk, not the weights this specific run measured. Audio
+    never hits fuse()'s generator-marker/C2PA override paths (those are
+    image/video-only), so a plain weighted average is a faithful stand-in for
+    what fuse() would compute given the same weights.
+    """
+    total = sum(w for w in weights.values() if w > 0)
+    labels: list[int] = []
+    fused_scores: list[float] = []
+    for sample in run.samples:
+        if total <= 0:
+            available = [(n, s) for n, s in sample.scores.items() if n in STREAMS]
+            if not available:
+                continue
+            fused = max(available, key=lambda ns: weights.get(ns[0], 0.0))[1]
+        else:
+            contributing = [
+                (weights[n], sample.scores[n])
+                for n in STREAMS
+                if n in sample.scores and weights.get(n, 0.0) > 0
+            ]
+            if not contributing:
+                continue
+            fused = sum(w * s for w, s in contributing) / sum(w for w, _ in contributing)
+        labels.append(sample.label)
+        fused_scores.append(fused)
+    return np.array(labels), np.array(fused_scores)
 
 
 def main() -> int:
@@ -200,37 +256,60 @@ def main() -> int:
     print(f"Reporting split:   {args.report_on}", flush=True)
     reporting_run = run_dataset(AUDIO_DATASETS[args.report_on], args.limit, args.seed)
 
-    calib_labels, calib_scores = _arrays(calibration_run)
-
     in_dataset_metrics: dict[str, dict] = {}
     stream_aucs: dict[str, float] = {}
-    if len(calib_labels) >= 20 and calib_labels.min() != calib_labels.max():
-        result = metrics.evaluate(calib_labels, calib_scores)
-        in_dataset_metrics["audio"] = result.to_dict()
-        stream_aucs["audio"] = result.auc
+    calib_arrays: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for stream in STREAMS:
+        labels, scores = _arrays(calibration_run, stream)
+        calib_arrays[stream] = (labels, scores)
+        if len(labels) >= 20 and labels.min() != labels.max():
+            result = metrics.evaluate(labels, scores)
+            in_dataset_metrics[stream] = result.to_dict()
+            stream_aucs[stream] = result.auc
 
     weights = calibrate.derive_fusion_weights(stream_aucs)
+    weight_by_stream = {w.stream: w.weight for w in weights}
 
     temperatures: dict[str, float] = {}
-    if "audio" in stream_aucs:
-        temperature, nll = calibrate.fit_temperature(calib_labels, calib_scores)
-        temperatures["audio"] = temperature
-        print(f"  audio: temperature {temperature:.3f} (NLL {nll:.4f})")
+    for stream in stream_aucs:
+        labels, scores = calib_arrays[stream]
+        temperature, nll = calibrate.fit_temperature(labels, scores)
+        temperatures[stream] = temperature
+        print(f"  {stream}: temperature {temperature:.3f} (NLL {nll:.4f})")
 
-    report_labels, report_scores = _arrays(reporting_run)
     cross_dataset_metrics: dict[str, dict] = {}
-    if len(report_labels) >= 20 and report_labels.min() != report_labels.max():
-        raw_result = metrics.evaluate(report_labels, report_scores)
+    for stream in STREAMS:
+        labels, scores = _arrays(reporting_run, stream)
+        if len(labels) < 20 or labels.min() == labels.max():
+            continue
+        raw_result = metrics.evaluate(labels, scores)
         calibrated_scores = (
-            calibrate.apply_temperature(report_scores, temperatures["audio"])
-            if "audio" in temperatures
-            else report_scores
+            calibrate.apply_temperature(scores, temperatures[stream])
+            if stream in temperatures
+            else scores
         )
-        calibrated_result = metrics.evaluate(report_labels, calibrated_scores)
-        cross_dataset_metrics["audio"] = {
+        calibrated_result = metrics.evaluate(labels, calibrated_scores)
+        cross_dataset_metrics[stream] = {
             "raw": raw_result.to_dict(),
             "calibrated": calibrated_result.to_dict(),
         }
+
+    # The actual question this second stream exists to answer: does fusing it
+    # with AASIST improve on AASIST alone, on the held-out corpus? Reported
+    # honestly either way -- see DECISIONS.md for the answer this run gave.
+    fused_labels, fused_scores = _fused_scores(reporting_run, weight_by_stream)
+    fused_metrics: dict | None = None
+    if len(fused_labels) >= 20 and fused_labels.min() != fused_labels.max():
+        fused_metrics = metrics.evaluate(fused_labels, fused_scores).to_dict()
+        audio_only_auc = cross_dataset_metrics.get("audio", {}).get("raw", {}).get("auc")
+        if audio_only_auc is not None:
+            delta = fused_metrics["auc"] - audio_only_auc
+            print(
+                f"  fusion vs. AASIST alone on {args.report_on}: "
+                f"{audio_only_auc:.4f} -> {fused_metrics['auc']:.4f} "
+                f"({'+' if delta >= 0 else ''}{delta:.4f})",
+                flush=True,
+            )
 
     robustness: dict[str, dict] = {}
     if args.robustness.lower() != "none":
@@ -245,9 +324,13 @@ def main() -> int:
                 snr_db=snr,
                 progress_every=0,
             )
-            s_labels, s_scores = _arrays(sweep)
-            if len(s_labels) >= 20 and s_labels.min() != s_labels.max():
-                robustness[str(snr)] = {"audio": round(metrics.auc_score(s_labels, s_scores), 4)}
+            entry: dict[str, float] = {}
+            for stream in STREAMS:
+                s_labels, s_scores = _arrays(sweep, stream)
+                if len(s_labels) >= 20 and s_labels.min() != s_labels.max():
+                    entry[stream] = round(metrics.auc_score(s_labels, s_scores), 4)
+            if entry:
+                robustness[str(snr)] = entry
 
     provenance_meta = {
         "generated_at": started.isoformat(),
@@ -280,6 +363,7 @@ def main() -> int:
         },
         "in_dataset_metrics": in_dataset_metrics,
         "cross_dataset_metrics": cross_dataset_metrics,
+        "fused_cross_dataset_metrics": fused_metrics,
         "temperature": temperatures,
         "fusion_weights": [
             {"stream": w.stream, "auc": w.auc, "weight": w.weight, "rationale": w.rationale}
