@@ -37,6 +37,7 @@ def write_audio_report(path: Path, payload: dict) -> None:
     coverage = payload["coverage"]
     cross = payload["cross_dataset_metrics"]
     in_dataset = payload["in_dataset_metrics"]
+    validation = payload.get("weight_validation_metrics") or {}
 
     calib_key = p["calibration_dataset"]
     report_key = p["reporting_dataset"]
@@ -55,7 +56,9 @@ def write_audio_report(path: Path, payload: dict) -> None:
     add("## Read this before quoting any number")
     add("")
     add(
-        f"- **Sample size.** {p['samples_per_dataset']} clips were drawn per corpus. "
+        f"- **Sample size.** {p['samples_per_dataset']} calibration clips, "
+        f"{p.get('validation_samples', '?')} weight-validation clips, and "
+        f"{p.get('final_reporting_samples', '?')} final held-out reporting clips. "
         "That is enough for a stable AUC and for fitting a single calibration "
         "parameter. It is *not* enough to measure true-positive rate at very low "
         "false-positive rates; those rows say so explicitly rather than showing a "
@@ -66,6 +69,17 @@ def write_audio_report(path: Path, payload: dict) -> None:
         "image classifier, AASIST's training data provenance is fully documented "
         "(ASVspoof2019 LA), so 'in-dataset' here is a known quantity, not a "
         "contamination risk of unknown extent."
+    )
+    add(
+        "- **Fusion weights come from a genuine cross-dataset split, not the "
+        "calibration corpus.** Earlier runs derived weights from calibration-split "
+        "AUC — in-distribution performance — which does not predict cross-dataset "
+        "generalisation and previously produced a fusion weight that made "
+        "cross-dataset AUC *worse* (see DECISIONS.md). The reporting corpus is now "
+        "split once, stratified by label, into a weight-validation half and a "
+        "final reporting half. Weights are derived from the validation half; every "
+        "headline number below comes from the final half, which played no part in "
+        "choosing them."
     )
     add(
         "- **These are not accuracy claims for arbitrary audio.** They describe "
@@ -82,19 +96,30 @@ def write_audio_report(path: Path, payload: dict) -> None:
     add(
         f"Calibration was fitted on **{calib_key}** and every headline figure is "
         f"reported on **{report_key}**, which shares no utterances with it and uses "
-        "different attack algorithms and codec/transmission conditions. In-dataset "
-        "figures appear further down purely for contrast — they are the numbers that "
-        "flatter, and the ones most published results quote."
+        "different attack algorithms and codec/transmission conditions. The "
+        f"{report_key} pool is itself split once, stratified by label, into a "
+        "weight-validation half (used only to derive the fusion weight below) and "
+        "a final held-out half (used only for the headline numbers). In-dataset "
+        "figures appear further down purely for contrast — they are the numbers "
+        "that flatter, and the ones most published results quote."
     )
     add("")
     add("| Corpus | Role | Licence | Commercial use | Scored |")
     add("|---|---|---|---|---|")
-    for key, role in ((calib_key, "calibration"), (report_key, "reporting")):
-        meta = datasets[key]
-        cov = coverage[key]
+    calib_meta, calib_cov = datasets[calib_key], coverage[calib_key]
+    add(
+        f"| `{calib_meta['hf_id']}` | calibration | {calib_meta['licence']} | "
+        f"{'yes' if calib_meta['commercial_use'] else '**no**'} | {calib_cov['scored']} |"
+    )
+    report_meta, report_cov = datasets[report_key], coverage[report_key]
+    for role, count_key in (
+        ("weight validation", "validation_scored"),
+        ("final reporting", "final_reporting_scored"),
+    ):
         add(
-            f"| `{meta['hf_id']}` | {role} | {meta['licence']} | "
-            f"{'yes' if meta['commercial_use'] else '**no**'} | {cov['scored']} |"
+            f"| `{report_meta['hf_id']}` | {role} | {report_meta['licence']} | "
+            f"{'yes' if report_meta['commercial_use'] else '**no**'} | "
+            f"{report_cov.get(count_key, '?')} |"
         )
     add("")
 
@@ -167,9 +192,10 @@ def write_audio_report(path: Path, payload: dict) -> None:
         if delta_auc > 0:
             add(
                 f"Fusion **improved** cross-dataset AUC by {delta_auc:.4f}. The "
-                "fusion weight below is derived entirely from calibration-split "
-                "AUC, the same way every other stream's weight in this project is "
-                "-- nothing here was hand-tuned to produce this result."
+                "fusion weight below is derived entirely from measured AUC on the "
+                "weight-validation half of this same cross-dataset corpus -- "
+                "nothing here was hand-tuned to produce this result, and the number "
+                "above comes from the other, untouched half."
             )
         elif delta_auc < 0:
             add(
@@ -189,12 +215,30 @@ def write_audio_report(path: Path, payload: dict) -> None:
             "periodicity (silence, heavy noise, non-speech audio)._\n"
         )
 
+    if validation:
+        add("## Weight-selection validation")
+        add("")
+        add(
+            "The AUC each stream measures on the weight-validation half above -- a "
+            f"held-out slice of **{report_key}**, disjoint from the final reporting "
+            "half -- and the only number the fusion weight below is derived from."
+        )
+        add("")
+        add("| Stream | Validation AUC (this decides the weight) |")
+        add("|---|---|")
+        for stream, entry in validation.items():
+            add(f"| {stream} | {entry['auc']:.4f} |")
+        add("")
+
     add("## Fusion weight")
     add("")
     add(
-        "Derived from measured validation AUC, never hand-picked. There is currently "
-        "one audio stream, so this is normally 1.0 by construction unless the "
-        "measured AUC is at or below chance."
+        "Derived from measured AUC on the weight-validation half of the reporting "
+        "corpus -- a genuine cross-dataset measurement, not the calibration "
+        "corpus's in-distribution AUC (see 'Read this before quoting any number' "
+        "above for why that distinction matters). There is currently one audio "
+        "stream with signal, so this is normally close to 1.0 by construction "
+        "unless the measured AUC is at or below chance."
     )
     add("")
     add("| Stream | Validation AUC | Weight | Rationale |")

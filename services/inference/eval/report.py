@@ -34,6 +34,7 @@ def write_report(path: Path, payload: dict) -> None:
     coverage = payload["coverage"]
     cross = payload["cross_dataset_metrics"]
     in_dataset = payload["in_dataset_metrics"]
+    validation = payload.get("weight_validation_metrics") or {}
 
     calib_key = p["calibration_dataset"]
     report_key = p["reporting_dataset"]
@@ -53,7 +54,9 @@ def write_report(path: Path, payload: dict) -> None:
     add("## Read this before quoting any number")
     add("")
     add(
-        f"- **Sample size.** {p['samples_per_dataset']} images were drawn per corpus. "
+        f"- **Sample size.** {p['samples_per_dataset']} calibration images, "
+        f"{p.get('validation_samples', '?')} weight-validation images, and "
+        f"{p.get('final_reporting_samples', '?')} final held-out reporting images. "
         "That is enough for a stable AUC and for fitting a single calibration "
         "parameter. It is *not* enough to measure true-positive rate at very low "
         "false-positive rates; those rows say so explicitly rather than showing a "
@@ -70,26 +73,49 @@ def write_report(path: Path, payload: dict) -> None:
         "generators they have not seen, and the generators in circulation change "
         "faster than any fixed evaluation set."
     )
+    add(
+        "- **Fusion weights come from a genuine cross-dataset split, not the "
+        "calibration corpus.** Earlier runs derived weights from calibration-split "
+        "AUC — in-distribution performance — which does not predict cross-dataset "
+        "generalisation: it once gave the frequency stream 86% of the fusion "
+        "weight, and that stream then generalised worse than spatial did on the "
+        "reporting split (see DECISIONS.md). The reporting corpus is now split "
+        "once, stratified by label, into a weight-validation half and a final "
+        "reporting half. Weights are derived from the validation half; every "
+        "headline number below comes from the final half, which played no part in "
+        "choosing them."
+    )
     add("")
 
     add("## Protocol")
     add("")
     add(
         f"Calibration was fitted on **{calib_key}** and every headline figure is "
-        f"reported on **{report_key}**, which shares no images with it. In-dataset "
-        "figures appear further down purely for contrast — they are the numbers that "
-        "flatter, and the ones most published results quote."
+        f"reported on **{report_key}**, which shares no images with it. The "
+        f"{report_key} pool is itself split once, stratified by label, into a "
+        "weight-validation half (used only to derive the fusion weights below) and "
+        "a final held-out half (used only for the headline numbers). In-dataset "
+        "figures appear further down purely for contrast — they are the numbers "
+        "that flatter, and the ones most published results quote."
     )
     add("")
     add("| Corpus | Role | Licence | Commercial use | Scored | No face detected |")
     add("|---|---|---|---|---|---|")
-    for key, role in ((calib_key, "calibration"), (report_key, "reporting")):
-        meta = datasets[key]
-        cov = coverage[key]
+    calib_meta, calib_cov = datasets[calib_key], coverage[calib_key]
+    add(
+        f"| `{calib_meta['hf_id']}` | calibration | {calib_meta['licence']} | "
+        f"{'yes' if calib_meta['commercial_use'] else '**no**'} | "
+        f"{calib_cov['scored']} | {calib_cov['no_face_detected']} |"
+    )
+    report_meta, report_cov = datasets[report_key], coverage[report_key]
+    for role, count_key in (
+        ("weight validation", "validation_scored"),
+        ("final reporting", "final_reporting_scored"),
+    ):
         add(
-            f"| `{meta['hf_id']}` | {role} | {meta['licence']} | "
-            f"{'yes' if meta['commercial_use'] else '**no**'} | "
-            f"{cov['scored']} | {cov['no_face_detected']} |"
+            f"| `{report_meta['hf_id']}` | {role} | {report_meta['licence']} | "
+            f"{'yes' if report_meta['commercial_use'] else '**no**'} | "
+            f"{report_cov.get(count_key, '?')} | — |"
         )
     add("")
 
@@ -136,13 +162,30 @@ def write_report(path: Path, payload: dict) -> None:
             )
         add("")
 
+    if validation:
+        add("## Weight-selection validation")
+        add("")
+        add(
+            "The AUC each stream measures on the weight-validation half above -- a "
+            f"held-out slice of **{report_key}**, disjoint from the final reporting "
+            "half -- and the only number the fusion weights below are derived from."
+        )
+        add("")
+        add("| Stream | Validation AUC (this decides the weight) |")
+        add("|---|---|")
+        for stream, entry in validation.items():
+            add(f"| {stream} | {entry['auc']:.4f} |")
+        add("")
+
     # --- Fusion weights ---
     add("## Fusion weights")
     add("")
     add(
-        "Derived from measured validation AUC, never hand-picked. Weight is "
-        "proportional to how far a stream sits above chance, normalised across "
-        "streams. A stream at or below chance receives zero."
+        "Derived from measured AUC on the weight-validation half of the reporting "
+        "corpus -- a genuine cross-dataset measurement, not the calibration "
+        "corpus's in-distribution AUC. Weight is proportional to how far a stream "
+        "sits above chance, normalised across streams. A stream at or below chance "
+        "receives zero."
     )
     add("")
     add("| Stream | Validation AUC | Weight | Rationale |")

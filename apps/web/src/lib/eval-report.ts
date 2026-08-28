@@ -50,14 +50,26 @@ interface Provenance {
   calibration_dataset: string;
   reporting_dataset: string;
   samples_per_dataset: number;
+  validation_samples?: number;
+  final_reporting_samples?: number;
   seed: number;
 }
 
 export interface EvalReport {
   provenance: Provenance;
   datasets: Record<string, DatasetMeta>;
-  coverage: Record<string, { scored: number; no_face_detected: number; seconds: number }>;
+  coverage: Record<
+    string,
+    {
+      scored: number;
+      no_face_detected: number;
+      seconds: number;
+      validation_scored?: number;
+      final_reporting_scored?: number;
+    }
+  >;
   in_dataset_metrics: Record<string, StreamMetrics>;
+  weight_validation_metrics?: Record<string, StreamMetrics>;
   cross_dataset_metrics: Record<string, { raw: StreamMetrics; calibrated: StreamMetrics }>;
   temperature: Record<string, number>;
   fusion_weights: { stream: string; auc: number; weight: number; rationale: string }[];
@@ -73,8 +85,17 @@ export interface EvalReport {
 export interface AudioEvalReport {
   provenance: Provenance;
   datasets: Record<string, DatasetMeta>;
-  coverage: Record<string, { scored: number; seconds: number }>;
+  coverage: Record<
+    string,
+    {
+      scored: number;
+      seconds: number;
+      validation_scored?: number;
+      final_reporting_scored?: number;
+    }
+  >;
   in_dataset_metrics: Record<string, StreamMetrics>;
+  weight_validation_metrics?: Record<string, StreamMetrics>;
   cross_dataset_metrics: Record<string, { raw: StreamMetrics; calibrated: StreamMetrics }>;
   fused_cross_dataset_metrics: StreamMetrics | null;
   temperature: Record<string, number>;

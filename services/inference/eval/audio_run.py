@@ -38,6 +38,7 @@ from eval.audio_datasets import (  # noqa: E402
     load_audio_samples,
 )
 from eval.audio_report import write_audio_report  # noqa: E402
+from eval.splits import stratified_half_split  # noqa: E402
 
 REPORTS_DIR = Path(__file__).resolve().parent / "reports"
 
@@ -233,6 +234,17 @@ def main() -> int:
     )
     parser.add_argument("--report-on", default="asvspoof2021", choices=sorted(AUDIO_DATASETS))
     parser.add_argument(
+        "--report-limit",
+        type=int,
+        default=None,
+        help=(
+            "total samples drawn from the reporting corpus (defaults to --limit), "
+            "split in half by label: one half selects the fusion weights via a "
+            "genuine cross-dataset AUC, the other is the untouched final reporting "
+            "split -- see DECISIONS.md"
+        ),
+    )
+    parser.add_argument(
         "--robustness",
         default="25,15,5",
         help="comma-separated SNR dB levels for the noise sweep, or 'none'",
@@ -253,33 +265,55 @@ def main() -> int:
     print(f"Calibration split: {args.calibrate_on}", flush=True)
     calibration_run = run_dataset(AUDIO_DATASETS[args.calibrate_on], args.limit, args.seed)
 
-    print(f"Reporting split:   {args.report_on}", flush=True)
-    reporting_run = run_dataset(AUDIO_DATASETS[args.report_on], args.limit, args.seed)
+    report_limit = args.report_limit or args.limit
+    print(f"Reporting pool:    {args.report_on} (n={report_limit}, split in half)", flush=True)
+    report_pool = run_dataset(AUDIO_DATASETS[args.report_on], report_limit, args.seed)
+
+    # The reporting corpus is split once, stratified by label, into two disjoint
+    # halves: `validation_run` selects the fusion weights (a genuine cross-dataset
+    # AUC, since it comes from a different corpus than calibration), and
+    # `final_run` is touched exactly once, after weights are already fixed, for
+    # the headline numbers. See DECISIONS.md -- deriving weights from the
+    # calibration split's in-distribution AUC is what previously produced a
+    # fusion weight that made cross-dataset AUC *worse*, because in-distribution
+    # AUC does not predict cross-dataset generalisation.
+    validation_samples, final_samples = stratified_half_split(
+        report_pool.samples, label_fn=lambda s: s.label
+    )
+    validation_run = AudioDatasetRun(spec=report_pool.spec, samples=validation_samples)
+    final_run = AudioDatasetRun(spec=report_pool.spec, samples=final_samples)
 
     in_dataset_metrics: dict[str, dict] = {}
-    stream_aucs: dict[str, float] = {}
     calib_arrays: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     for stream in STREAMS:
         labels, scores = _arrays(calibration_run, stream)
         calib_arrays[stream] = (labels, scores)
         if len(labels) >= 20 and labels.min() != labels.max():
+            in_dataset_metrics[stream] = metrics.evaluate(labels, scores).to_dict()
+
+    validation_metrics: dict[str, dict] = {}
+    stream_aucs: dict[str, float] = {}
+    for stream in STREAMS:
+        labels, scores = _arrays(validation_run, stream)
+        if len(labels) >= 20 and labels.min() != labels.max():
             result = metrics.evaluate(labels, scores)
-            in_dataset_metrics[stream] = result.to_dict()
+            validation_metrics[stream] = result.to_dict()
             stream_aucs[stream] = result.auc
 
     weights = calibrate.derive_fusion_weights(stream_aucs)
     weight_by_stream = {w.stream: w.weight for w in weights}
 
     temperatures: dict[str, float] = {}
-    for stream in stream_aucs:
-        labels, scores = calib_arrays[stream]
+    for stream, (labels, scores) in calib_arrays.items():
+        if len(labels) < 20 or labels.min() == labels.max():
+            continue
         temperature, nll = calibrate.fit_temperature(labels, scores)
         temperatures[stream] = temperature
         print(f"  {stream}: temperature {temperature:.3f} (NLL {nll:.4f})")
 
     cross_dataset_metrics: dict[str, dict] = {}
     for stream in STREAMS:
-        labels, scores = _arrays(reporting_run, stream)
+        labels, scores = _arrays(final_run, stream)
         if len(labels) < 20 or labels.min() == labels.max():
             continue
         raw_result = metrics.evaluate(labels, scores)
@@ -295,9 +329,10 @@ def main() -> int:
         }
 
     # The actual question this second stream exists to answer: does fusing it
-    # with AASIST improve on AASIST alone, on the held-out corpus? Reported
-    # honestly either way -- see DECISIONS.md for the answer this run gave.
-    fused_labels, fused_scores = _fused_scores(reporting_run, weight_by_stream)
+    # with AASIST improve on AASIST alone, on the final held-out split -- the one
+    # that played no part in choosing the fusion weight? Reported honestly either
+    # way -- see DECISIONS.md for the answer this run gave.
+    fused_labels, fused_scores = _fused_scores(final_run, weight_by_stream)
     fused_metrics: dict | None = None
     if len(fused_labels) >= 20 and fused_labels.min() != fused_labels.max():
         fused_metrics = metrics.evaluate(fused_labels, fused_scores).to_dict()
@@ -337,6 +372,9 @@ def main() -> int:
         "calibration_dataset": args.calibrate_on,
         "reporting_dataset": args.report_on,
         "samples_per_dataset": args.limit,
+        "report_pool_samples": len(report_pool.samples),
+        "validation_samples": len(validation_run.samples),
+        "final_reporting_samples": len(final_run.samples),
         "seed": args.seed,
     }
 
@@ -357,11 +395,14 @@ def main() -> int:
                 "seconds": round(calibration_run.seconds, 1),
             },
             args.report_on: {
-                "scored": len(reporting_run.samples),
-                "seconds": round(reporting_run.seconds, 1),
+                "scored": len(report_pool.samples),
+                "validation_scored": len(validation_run.samples),
+                "final_reporting_scored": len(final_run.samples),
+                "seconds": round(report_pool.seconds, 1),
             },
         },
         "in_dataset_metrics": in_dataset_metrics,
+        "weight_validation_metrics": validation_metrics,
         "cross_dataset_metrics": cross_dataset_metrics,
         "fused_cross_dataset_metrics": fused_metrics,
         "temperature": temperatures,

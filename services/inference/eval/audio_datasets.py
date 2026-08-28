@@ -183,6 +183,15 @@ def _load_asvspoof2021(spec: AudioDatasetSpec, limit: int, seed: int) -> Iterato
 
     with fs.open(_ZIP_ENTRY, "rb") as handle:
         with zipfile.ZipFile(handle) as archive:
+            # Every matching candidate is kept here, not just the first `per_class`
+            # seen per label: capping the plan before any decode is attempted means
+            # a decode failure permanently loses that slot, since nothing backfills
+            # it. That silently under-delivered before -- a `--limit 60` request
+            # returned 31 scored samples with no error, because 29 of the 60
+            # candidates picked before decoding happened to fail to decode. Trying
+            # every shuffled candidate in order (stopping once both class quotas
+            # are actually met) lets later candidates backfill earlier failures,
+            # the same way the streaming 2019 loader naturally does.
             plan: list[tuple[str, Label]] = []
             for name in archive.namelist():
                 if name.endswith("/") or not name.lower().endswith(".flac"):
@@ -197,19 +206,10 @@ def _load_asvspoof2021(spec: AudioDatasetSpec, limit: int, seed: int) -> Iterato
                     plan.append((name, label))
 
             rng.shuffle(plan)
-            by_label: dict[Label, list[str]] = {0: [], 1: []}
+
             for name, label in plan:
-                if len(by_label[label]) < per_class:
-                    by_label[label].append(name)
-                if len(by_label[0]) >= per_class and len(by_label[1]) >= per_class:
+                if emitted[0] >= per_class and emitted[1] >= per_class:
                     break
-
-            ordered = [(name, 0) for name in by_label[0]] + [
-                (name, 1) for name in by_label[1]
-            ]
-            rng.shuffle(ordered)
-
-            for name, label in ordered:
                 if emitted[label] >= per_class:
                     continue
                 try:

@@ -40,6 +40,7 @@ from app.pipeline.provenance import analyze_provenance  # noqa: E402
 from eval import calibrate, metrics  # noqa: E402
 from eval.datasets import DATASETS, DatasetSpec, Sample, load_samples  # noqa: E402
 from eval.report import write_report  # noqa: E402
+from eval.splits import stratified_half_split  # noqa: E402
 
 REPORTS_DIR = Path(__file__).resolve().parent / "reports"
 
@@ -221,6 +222,17 @@ def main() -> int:
     )
     parser.add_argument("--report-on", default="df40faces", choices=sorted(DATASETS))
     parser.add_argument(
+        "--report-limit",
+        type=int,
+        default=None,
+        help=(
+            "total samples drawn from the reporting corpus (defaults to --limit), "
+            "split in half by label: one half selects the fusion weights via a "
+            "genuine cross-dataset AUC, the other is the untouched final reporting "
+            "split -- see DECISIONS.md"
+        ),
+    )
+    parser.add_argument(
         "--robustness",
         default="90,60,30",
         help="comma-separated JPEG qualities for the degradation sweep, or 'none'",
@@ -246,19 +258,49 @@ def main() -> int:
     print(f"Calibration split: {args.calibrate_on}")
     calibration_run = run_dataset(DATASETS[args.calibrate_on], args.limit, args.seed)
 
-    print(f"Reporting split:   {args.report_on}")
-    reporting_run = run_dataset(DATASETS[args.report_on], args.limit, args.seed)
+    report_limit = args.report_limit or args.limit
+    print(f"Reporting pool:    {args.report_on} (n={report_limit}, split in half)")
+    report_pool = run_dataset(DATASETS[args.report_on], report_limit, args.seed)
 
-    # --- per-stream metrics on the calibration split, used to derive weights ---
+    # The reporting corpus is split once, stratified by label, into two disjoint
+    # halves: `validation_run` selects the fusion weights (a genuine cross-dataset
+    # AUC, since it comes from a different corpus than calibration), and
+    # `final_run` is touched exactly once, after weights are already fixed, for
+    # the headline numbers. See DECISIONS.md -- deriving weights from the
+    # calibration split's in-distribution AUC previously gave the frequency
+    # stream 86% of the fusion weight, then it generalised worse than spatial did
+    # on the reporting split. In-distribution AUC does not predict cross-dataset
+    # generalisation.
+    validation_samples, final_samples = stratified_half_split(
+        report_pool.samples, label_fn=lambda s: s.label
+    )
+    validation_run = DatasetRun(
+        spec=report_pool.spec,
+        samples=validation_samples,
+        skipped_no_face=sum(1 for s in validation_samples if s.spatial is None),
+    )
+    final_run = DatasetRun(
+        spec=report_pool.spec,
+        samples=final_samples,
+        skipped_no_face=sum(1 for s in final_samples if s.spatial is None),
+    )
+
+    # --- per-stream metrics on the calibration split, for contrast only ---
     stream_metrics: dict[str, dict] = {}
-    stream_aucs: dict[str, float] = {}
-
     for stream in ("spatial", "frequency"):
         labels, scores = _arrays(calibration_run, stream)
+        if len(labels) >= 20 and labels.min() != labels.max():
+            stream_metrics[stream] = metrics.evaluate(labels, scores).to_dict()
+
+    # --- per-stream metrics on the weight-validation half, used to derive weights ---
+    validation_metrics: dict[str, dict] = {}
+    stream_aucs: dict[str, float] = {}
+    for stream in ("spatial", "frequency"):
+        labels, scores = _arrays(validation_run, stream)
         if len(labels) < 20 or labels.min() == labels.max():
             continue
         result = metrics.evaluate(labels, scores)
-        stream_metrics[stream] = result.to_dict()
+        validation_metrics[stream] = result.to_dict()
         stream_aucs[stream] = result.auc
 
     weights = calibrate.derive_fusion_weights(stream_aucs)
@@ -271,10 +313,10 @@ def main() -> int:
         temperatures[stream] = temperature
         print(f"  {stream}: temperature {temperature:.3f} (NLL {nll:.4f})")
 
-    # --- reporting split, before and after calibration ---
+    # --- final held-out half, before and after calibration -- the headline numbers ---
     reporting_metrics: dict[str, dict] = {}
     for stream in stream_aucs:
-        labels, scores = _arrays(reporting_run, stream)
+        labels, scores = _arrays(final_run, stream)
         if len(labels) < 20 or labels.min() == labels.max():
             continue
 
@@ -313,6 +355,9 @@ def main() -> int:
         "calibration_dataset": args.calibrate_on,
         "reporting_dataset": args.report_on,
         "samples_per_dataset": args.limit,
+        "report_pool_samples": len(report_pool.samples),
+        "validation_samples": len(validation_run.samples),
+        "final_reporting_samples": len(final_run.samples),
         "seed": args.seed,
     }
 
@@ -334,12 +379,15 @@ def main() -> int:
                 "seconds": round(calibration_run.seconds, 1),
             },
             args.report_on: {
-                "scored": len(reporting_run.samples),
-                "no_face_detected": reporting_run.skipped_no_face,
-                "seconds": round(reporting_run.seconds, 1),
+                "scored": len(report_pool.samples),
+                "no_face_detected": validation_run.skipped_no_face + final_run.skipped_no_face,
+                "validation_scored": len(validation_run.samples),
+                "final_reporting_scored": len(final_run.samples),
+                "seconds": round(report_pool.seconds, 1),
             },
         },
         "in_dataset_metrics": stream_metrics,
+        "weight_validation_metrics": validation_metrics,
         "cross_dataset_metrics": reporting_metrics,
         # Stream D reads embedded provenance, which these corpora do not carry.
         # Recorded explicitly so its absence from the metrics tables reads as
@@ -350,7 +398,7 @@ def main() -> int:
                 1 for s in calibration_run.samples if s.provenance_fired
             ),
             "fired_on_reporting_split": sum(
-                1 for s in reporting_run.samples if s.provenance_fired
+                1 for s in final_run.samples if s.provenance_fired
             ),
             "note": (
                 "Stream D reads C2PA manifests and generator metadata. Neither corpus "

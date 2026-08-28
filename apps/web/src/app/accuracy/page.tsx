@@ -157,9 +157,12 @@ function ImageAccuracySection({ report }: { report: NonNullable<Awaited<ReturnTy
               and less meaningful.
             </li>
             <li>
-              {provenance.samples_per_dataset} images were sampled per corpus. Where that
-              is too few to measure something, the row below says so instead of showing
-              a number.
+              {provenance.samples_per_dataset} calibration images
+              {provenance.validation_samples != null && provenance.final_reporting_samples != null
+                ? `, ${provenance.validation_samples} weight-validation images, and ${provenance.final_reporting_samples} final held-out reporting images`
+                : " were sampled per corpus"}
+              . Where that is too few to measure something, the row below says so instead
+              of showing a number.
             </li>
             <li>
               The classifier&rsquo;s training data is not fully published, so overlap with
@@ -191,8 +194,11 @@ function ImageAccuracySection({ report }: { report: NonNullable<Awaited<ReturnTy
             Fusion weights
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Derived from each stream&rsquo;s measured performance on the calibration split,
-            never chosen by hand. A stream that performs at chance receives zero weight.
+            Derived from each stream&rsquo;s measured performance on a held-out
+            weight-validation split of the reporting corpus — not the calibration
+            corpus&rsquo;s in-distribution performance, which does not predict
+            cross-dataset generalisation (see <span className="font-mono">DECISIONS.md</span>).
+            Never chosen by hand. A stream that performs at chance receives zero weight.
           </p>
         </CardHeader>
         <CardContent>
@@ -335,7 +341,13 @@ function AudioAccuracySection({ report }: { report: NonNullable<Awaited<ReturnTy
               a different corpus from the one calibration was fitted on and from the corpus
               AASIST itself was trained on ({calibrationSet?.hf_id}).
             </li>
-            <li>{provenance.samples_per_dataset} clips were sampled per corpus.</li>
+            <li>
+              {provenance.samples_per_dataset} calibration clips
+              {provenance.validation_samples != null && provenance.final_reporting_samples != null
+                ? `, ${provenance.validation_samples} weight-validation clips, and ${provenance.final_reporting_samples} final held-out reporting clips`
+                : " were sampled per corpus"}
+              .
+            </li>
           </ul>
         </CardContent>
       </Card>
@@ -408,8 +420,11 @@ function AudioAccuracySection({ report }: { report: NonNullable<Awaited<ReturnTy
             Fusion weights
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Derived from each stream&rsquo;s measured performance on the calibration split,
-            never chosen by hand.
+            Derived from each stream&rsquo;s measured performance on a held-out
+            weight-validation split of the reporting corpus — not the calibration
+            corpus&rsquo;s in-distribution performance, which does not predict
+            cross-dataset generalisation (see <span className="font-mono">DECISIONS.md</span>).
+            Never chosen by hand.
           </p>
         </CardHeader>
         <CardContent>
