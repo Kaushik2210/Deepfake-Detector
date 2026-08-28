@@ -122,6 +122,30 @@ class Settings(BaseSettings):
     # Fraction of samples sitting at or past the float clipping ceiling.
     audio_clipping_ratio_threshold: float = 0.001
 
+    # --- Rate limiting & abuse prevention (Phase 7) ---
+    # Same Redis instance docker-compose already provisions for the web app's
+    # BullMQ queue -- rate limiting is Redis's textbook use case, so this reuses
+    # already-provisioned infra rather than repurposing Postgres for it.
+    redis_url: str = "redis://localhost:6379"
+    # The extension calls this endpoint directly, unauthenticated -- the
+    # highest-abuse-potential surface in the service, since a full analysis is
+    # the expensive path (model inference, not a cache read).
+    rate_limit_analyze_per_minute: int = 20
+    # Cheap: a cache read, no model inference. Looser limit reflects that, but
+    # it is also the endpoint someone probing "has X's photo been analysed"
+    # would hit hardest, so it is not unlimited either.
+    rate_limit_hash_per_minute: int = 60
+    rate_limit_window_seconds: int = 60
+
+    # Per CLAUDE.md's ethics guardrails: "this tool can be misused to harass by
+    # repeatedly 'proving' someone's real content is fake." Logged, never
+    # blocked -- rate limiting already caps the damage any single caller can
+    # do; this is for an operator to notice a pattern across *many* different
+    # callers repeatedly checking the same piece of content, which a per-caller
+    # limit cannot see. Never logs raw media, only the perceptual hash.
+    abuse_phash_lookup_threshold: int = 10
+    abuse_phash_window_seconds: int = 3600
+
     # --- CORS ---
     # The extension calls this service directly from a chrome-extension://
     # origin rather than through the authenticated web app, since it must work

@@ -12,13 +12,13 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from app.config import get_settings
 from app.models import audio_registry, registry
-from app.pipeline import hash_cache
+from app.pipeline import hash_cache, rate_limit
 from app.pipeline.analyze import DecodeError, analyze_image
 from app.pipeline.analyze_audio import AudioTooLongError, analyze_audio
 from app.pipeline.analyze_video import VideoTooLongError, analyze_video
@@ -66,6 +66,18 @@ _ACCEPTED_AUDIO_TYPES = {
 _ACCEPTED_TYPES = _ACCEPTED_IMAGE_TYPES | _ACCEPTED_VIDEO_TYPES | _ACCEPTED_AUDIO_TYPES
 
 
+def _client_ip(request: Request) -> str:
+    """Prefer X-Forwarded-For's original client when behind a reverse proxy
+    (the deployed shape); fall back to the direct peer for local/dev use.
+    Not a security boundary -- a caller can forge this header -- but it is a
+    reasonable identifier for a best-effort abuse-prevention limiter, which is
+    the sensitivity level this is used at."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 @app.get("/v1/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     settings = get_settings()
@@ -94,8 +106,23 @@ def health() -> HealthResponse:
 
 
 @app.post("/v1/analyze", response_model=AnalysisReport)
-async def analyze(file: UploadFile = File(...)) -> AnalysisReport:
+async def analyze(request: Request, file: UploadFile = File(...)) -> AnalysisReport:
     settings = get_settings()
+
+    try:
+        rate_limit.enforce(
+            "analyze",
+            _client_ip(request),
+            settings.rate_limit_analyze_per_minute,
+            settings.rate_limit_window_seconds,
+        )
+    except rate_limit.RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail=str(exc),
+            headers={"Retry-After": str(exc.window_seconds)},
+        ) from exc
+
     content_type = file.content_type or ""
     is_video = content_type in _ACCEPTED_VIDEO_TYPES
     is_audio = content_type in _ACCEPTED_AUDIO_TYPES
@@ -158,11 +185,20 @@ async def analyze(file: UploadFile = File(...)) -> AnalysisReport:
         datetime.fromisoformat(report.ttl_expires_at),
     )
 
+    if report.provenance.phash:
+        rate_limit.note_phash_activity(
+            report.provenance.phash,
+            settings.abuse_phash_lookup_threshold,
+            settings.abuse_phash_window_seconds,
+        )
+
     return report
 
 
 @app.post("/v1/analyze/hash", response_model=AnalysisReport)
-def analyze_by_hash(request: AnalyzeByHashRequest) -> AnalysisReport:
+def analyze_by_hash(
+    http_request: Request, body: AnalyzeByHashRequest
+) -> AnalysisReport:
     """Look up a previously computed report by perceptual hash.
 
     Lets a caller check "has this already been analysed?" before uploading
@@ -171,8 +207,31 @@ def analyze_by_hash(request: AnalyzeByHashRequest) -> AnalysisReport:
     the caller's job either way is to fall back to a real upload, not to
     distinguish "no" from "couldn't ask".
     """
+    settings = get_settings()
+
     try:
-        cached = hash_cache.lookup(request.phash)
+        rate_limit.enforce(
+            "analyze_hash",
+            _client_ip(http_request),
+            settings.rate_limit_hash_per_minute,
+            settings.rate_limit_window_seconds,
+        )
+    except rate_limit.RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail=str(exc),
+            headers={"Retry-After": str(exc.window_seconds)},
+        ) from exc
+
+    # Every lookup counts toward the abuse signal, hit or miss: a string of
+    # misses probing the same hash is as much a "someone keeps checking on
+    # this" pattern as a string of hits would be.
+    rate_limit.note_phash_activity(
+        body.phash, settings.abuse_phash_lookup_threshold, settings.abuse_phash_window_seconds
+    )
+
+    try:
+        cached = hash_cache.lookup(body.phash)
     except hash_cache.HashCacheUnavailable:
         cached = None
 

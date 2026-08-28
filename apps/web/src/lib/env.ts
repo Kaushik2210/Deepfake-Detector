@@ -21,6 +21,12 @@ const serverSchema = z.object({
   MAX_VIDEO_BYTES: z.coerce.number().int().positive().default(100 * 1024 * 1024),
   MAX_AUDIO_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
 
+  // Per-user (Clerk-authenticated, so attributable) rather than per-IP --
+  // mirrors services/inference's own rate limiter, same Redis, same
+  // fixed-window design. See lib/rate-limit.ts.
+  RATE_LIMIT_ANALYZE_PER_MINUTE: z.coerce.number().int().positive().default(10),
+  RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+
   CLERK_SECRET_KEY: z.string().optional(),
 });
 

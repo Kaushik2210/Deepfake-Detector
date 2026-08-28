@@ -5,6 +5,7 @@ import { db, schema } from "@/db";
 import { currentUserId } from "@/lib/auth";
 import { serverEnv } from "@/lib/env";
 import { analysisQueue } from "@/lib/queue";
+import { enforceRateLimit, RateLimitExceededError } from "@/lib/rate-limit";
 import { ensureBucket, putMedia } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -33,6 +34,24 @@ export async function POST(request: Request) {
   }
 
   const env = serverEnv();
+
+  try {
+    await enforceRateLimit(
+      "analyze",
+      userId,
+      env.RATE_LIMIT_ANALYZE_PER_MINUTE,
+      env.RATE_LIMIT_WINDOW_SECONDS,
+    );
+  } catch (error) {
+    if (error instanceof RateLimitExceededError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 429, headers: { "Retry-After": String(error.windowSeconds) } },
+      );
+    }
+    throw error;
+  }
+
   const form = await request.formData();
 
   // Consent is a hard gate, not a UI nicety: nothing is stored or uploaded

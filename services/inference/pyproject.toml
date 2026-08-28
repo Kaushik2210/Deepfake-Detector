@@ -27,6 +27,8 @@ dependencies = [
     "c2pa-python>=0.30",
     # Audio decode (wav/flac/ogg) for the audio anti-spoofing pipeline.
     "soundfile>=0.12",
+    # Phase 7: rate limiting, backed by the same Redis the web app already runs.
+    "redis>=5.0",
 ]
 
 [project.optional-dependencies]
@@ -62,6 +64,7 @@ testpaths = ["tests"]
 markers = [
     "model: requires downloading real model weights from Hugging Face (deselect with '-m \"not model\"')",
     "db: requires a reachable Postgres at settings.database_url",
+    "redis: requires a reachable Redis at settings.redis_url",
 ]
 
 [tool.ruff]
