@@ -1,5 +1,7 @@
 import type { Conclusion } from "@veriframe/core";
 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 /**
  * The plain-language summary, shown first because it is what most readers will
  * actually read. Everything below it on the report is the supporting detail.
@@ -20,25 +22,27 @@ export function ConclusionPanel({
   const { faces_analyzed: analyzed, faces_elevated: elevated } = conclusion;
 
   return (
-    <section className="rounded-lg border-2 border-slate-900 bg-white p-6">
-      <h2 className="text-xl font-semibold text-slate-900">{conclusion.headline}</h2>
+    <Card className="border-2 border-foreground/80" size="default">
+      <CardHeader>
+        <CardTitle className="text-xl">{conclusion.headline}</CardTitle>
+        {analyzed > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {analyzed} {unit}
+            {analyzed === 1 ? "" : "s"} analysed
+            {elevated > 0 && ` · ${elevated} above the review threshold`}
+          </p>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="leading-relaxed">{conclusion.detail}</p>
 
-      {analyzed > 0 && (
-        <p className="mt-1 text-sm text-slate-500">
-          {analyzed} {unit}
-          {analyzed === 1 ? "" : "s"} analysed
-          {elevated > 0 && ` · ${elevated} above the review threshold`}
-        </p>
-      )}
-
-      <p className="mt-4 leading-relaxed text-slate-800">{conclusion.detail}</p>
-
-      <div className="mt-4 rounded border-l-4 border-slate-900 bg-slate-50 px-4 py-3">
-        <p className="text-sm font-medium text-slate-900">What to do next</p>
-        <p className="mt-1 text-sm leading-relaxed text-slate-700">
-          {conclusion.next_steps}
-        </p>
-      </div>
-    </section>
+        <div className="rounded-md border-l-4 border-foreground bg-muted px-4 py-3">
+          <p className="text-sm font-medium">What to do next</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            {conclusion.next_steps}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

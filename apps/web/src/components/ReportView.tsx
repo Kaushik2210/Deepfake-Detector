@@ -1,18 +1,31 @@
 import { REPORT_FOOTER_DISCLAIMER, type AnalysisReport } from "@veriframe/core";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { AlertTriangle, Info } from "lucide-react";
+
 import { ConclusionPanel } from "./ConclusionPanel";
 import { FaceFindings } from "./FaceFindings";
 import { ScoreBand } from "./ScoreBand";
 import { TimelineChart } from "./TimelineChart";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-        {title}
-      </h2>
-      {children}
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }
 
@@ -33,7 +46,7 @@ export function ReportView({ report }: { report: AnalysisReport }) {
       <Section title={faces.length > 1 ? "Overall assessment" : "Assessment"}>
         <ScoreBand score={report.score} uncertainty={report.uncertainty} />
         {faces.length > 1 && (
-          <p className="mt-3 text-sm text-slate-600">
+          <p className="mt-3 text-sm text-muted-foreground">
             This is the highest of the {faces.length} individual {unit} scores,
             adjusted for the caveats below.{" "}
             {isVideo
@@ -49,55 +62,52 @@ export function ReportView({ report }: { report: AnalysisReport }) {
         the evidence, because it changes how the evidence should be read.
       */}
       {!envelope.in_distribution && (
-        <Section title="Confidence reduced">
-          <p className="mb-3 text-sm text-slate-700">
+        <Alert variant="destructive" className="border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
+          <AlertTriangle className="text-amber-600 dark:text-amber-400" />
+          <AlertTitle className="text-amber-900 dark:text-amber-200">Confidence reduced</AlertTitle>
+          <AlertDescription className="text-amber-900/90 dark:text-amber-200/90">
             This input falls outside the range the detector was validated on. The
-            reported likelihood has been moved toward &ldquo;inconclusive&rdquo; and its range
-            widened for the reasons below.
-          </p>
-          <ul className="space-y-2">
+            reported likelihood has been moved toward &ldquo;inconclusive&rdquo; and its
+            range widened for the reasons below.
+          </AlertDescription>
+          <ul className="col-start-2 mt-2 space-y-1.5">
             {envelope.penalties.map((penalty, index) => (
-              <li
-                key={index}
-                className="rounded border-l-4 border-amber-400 bg-amber-50 px-3 py-2 text-sm text-slate-800"
-              >
+              <li key={index} className="text-sm text-amber-900/90 dark:text-amber-200/90">
                 {penalty.reason}
               </li>
             ))}
           </ul>
-        </Section>
+        </Alert>
       )}
 
       {envelope.in_distribution && envelope.penalties.length > 0 && (
-        <Section title="Caveats">
-          <ul className="space-y-2">
+        <Alert>
+          <Info />
+          <AlertTitle>Caveats</AlertTitle>
+          <ul className="col-start-2 mt-2 space-y-1.5">
             {envelope.penalties.map((penalty, index) => (
-              <li
-                key={index}
-                className="rounded border-l-4 border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
-              >
+              <li key={index} className="text-sm text-muted-foreground">
                 {penalty.reason}
               </li>
             ))}
           </ul>
-        </Section>
+        </Alert>
       )}
 
       <Section title="Evidence">
         {report.streams.length === 0 ? (
-          <p className="text-sm text-slate-700">
+          <p className="text-sm text-muted-foreground">
             No detector was able to run on this media, so there is no evidence to
             show. This is why the result above is inconclusive rather than clean.
           </p>
         ) : (
           <div className="space-y-6">
-            {report.streams.map((stream) => (
+            {report.streams.map((stream, streamIndex) => (
               <div key={stream.name}>
-                <div className="mb-2 flex items-baseline justify-between">
-                  <h3 className="font-medium capitalize text-slate-900">
-                    {stream.name} analysis
-                  </h3>
-                  <span className="text-sm text-slate-500">
+                {streamIndex > 0 && <Separator className="mb-6" />}
+                <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <h3 className="font-medium capitalize">{stream.name.replace(/_/g, " ")} analysis</h3>
+                  <span className="text-sm text-muted-foreground">
                     raw score {stream.score.toFixed(3)} · weight {stream.weight}
                   </span>
                 </div>
@@ -111,9 +121,9 @@ export function ReportView({ report }: { report: AnalysisReport }) {
                           <img
                             src={artifact.url}
                             alt={artifact.label}
-                            className="w-full rounded border border-slate-200"
+                            className="w-full rounded-md border"
                           />
-                          <figcaption className="mt-1 text-xs text-slate-500">
+                          <figcaption className="mt-1 text-xs text-muted-foreground">
                             {artifact.label}. Box colour matches each face&rsquo;s band.
                           </figcaption>
                         </figure>
@@ -124,7 +134,7 @@ export function ReportView({ report }: { report: AnalysisReport }) {
                       return (
                         <figure key={index}>
                           <TimelineChart points={artifact.points} />
-                          <figcaption className="mt-1 text-xs text-slate-500">
+                          <figcaption className="mt-1 text-xs text-muted-foreground">
                             {artifact.label}. Dot colour matches each sampled {unit}
                             &rsquo;s band.
                           </figcaption>
@@ -139,9 +149,9 @@ export function ReportView({ report }: { report: AnalysisReport }) {
                           <img
                             src={artifact.url}
                             alt={artifact.label}
-                            className="max-w-xs rounded border border-slate-200"
+                            className="max-w-xs rounded-md border"
                           />
-                          <figcaption className="mt-1 text-xs text-slate-500">
+                          <figcaption className="mt-1 text-xs text-muted-foreground">
                             {artifact.label}. Warmer regions contributed more to the score.
                           </figcaption>
                         </figure>
@@ -155,9 +165,9 @@ export function ReportView({ report }: { report: AnalysisReport }) {
                           <img
                             src={artifact.url}
                             alt={artifact.label}
-                            className="w-full max-w-xl rounded border border-slate-200"
+                            className="w-full max-w-xl rounded-md border"
                           />
-                          <figcaption className="mt-1 text-xs text-slate-500">
+                          <figcaption className="mt-1 text-xs text-muted-foreground">
                             {artifact.label}.
                           </figcaption>
                         </figure>
@@ -166,8 +176,8 @@ export function ReportView({ report }: { report: AnalysisReport }) {
 
                     if (artifact.type === "note") {
                       return (
-                        <div key={index} className="text-sm text-slate-700">
-                          <span className="font-medium">{artifact.label}:</span>{" "}
+                        <div key={index} className="text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">{artifact.label}:</span>{" "}
                           {artifact.detail}
                         </div>
                       );
@@ -177,7 +187,7 @@ export function ReportView({ report }: { report: AnalysisReport }) {
                   })}
                 </div>
 
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-muted-foreground">
                   Models: {stream.models.join(", ")}
                 </p>
               </div>
@@ -194,8 +204,8 @@ export function ReportView({ report }: { report: AnalysisReport }) {
             .filter(([, value]) => value)
             .map(([key, value]) => (
               <div key={key} className="contents">
-                <dt className="text-slate-500">{key.replace(/_/g, " ")}</dt>
-                <dd className="text-slate-900">{value}</dd>
+                <dt className="text-muted-foreground">{key.replace(/_/g, " ")}</dt>
+                <dd>{value}</dd>
               </div>
             ))}
         </dl>
@@ -203,29 +213,21 @@ export function ReportView({ report }: { report: AnalysisReport }) {
 
       <Section title="Provenance and retention">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-          <dt className="text-slate-500">Perceptual hash</dt>
-          <dd className="font-mono text-xs text-slate-900">
-            {report.provenance.phash ?? "—"}
-          </dd>
-          <dt className="text-slate-500">Processed at</dt>
-          <dd className="text-slate-900">
-            {new Date(report.processed_at).toLocaleString()}
-          </dd>
-          <dt className="text-slate-500">Media deleted after</dt>
-          <dd className="text-slate-900">
-            {new Date(report.ttl_expires_at).toLocaleString()}
-          </dd>
+          <dt className="text-muted-foreground">Perceptual hash</dt>
+          <dd className="font-mono text-xs">{report.provenance.phash ?? "—"}</dd>
+          <dt className="text-muted-foreground">Processed at</dt>
+          <dd>{new Date(report.processed_at).toLocaleString()}</dd>
+          <dt className="text-muted-foreground">Media deleted after</dt>
+          <dd>{new Date(report.ttl_expires_at).toLocaleString()}</dd>
         </dl>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-muted-foreground">
           Model versions: {Object.values(report.model_versions).join(" · ")}
         </p>
       </Section>
 
       {/* Principle 6: non-dismissible, on every report. */}
-      <footer className="rounded-lg border-2 border-slate-900 bg-slate-100 p-4">
-        <p className="text-sm font-medium text-slate-900">
-          {REPORT_FOOTER_DISCLAIMER}
-        </p>
+      <footer className="rounded-lg border-2 border-foreground bg-muted p-4">
+        <p className="text-sm font-medium">{REPORT_FOOTER_DISCLAIMER}</p>
       </footer>
     </div>
   );

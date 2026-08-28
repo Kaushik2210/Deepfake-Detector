@@ -1,7 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
+import { FileAudio, FileVideo, ImageIcon, UploadCloud } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 const ACCEPTED_IMAGE = ["image/jpeg", "image/png", "image/webp", "image/bmp"];
 const ACCEPTED_VIDEO = ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska"];
@@ -21,12 +28,35 @@ function mediaKindLabel(type: string): "video" | "audio" | "image" {
   return "image";
 }
 
+function MediaKindIcon({ type }: { type: string }) {
+  const kind = mediaKindLabel(type);
+  const props = { className: "size-6 text-muted-foreground", "aria-hidden": true as const };
+  if (kind === "video") return <FileVideo {...props} />;
+  if (kind === "audio") return <FileAudio {...props} />;
+  return <ImageIcon {...props} />;
+}
+
 export function UploadForm({ ttlHours }: { ttlHours: number }) {
   const router = useRouter();
+  const inputId = useId();
+  const consentId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const [file, setFile] = useState<File | null>(null);
   const [consented, setConsented] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  function chooseFile(next: File | null) {
+    if (next && !ACCEPTED.includes(next.type)) {
+      setError(`Unsupported file type: ${next.type || "unknown"}`);
+      setFile(null);
+      return;
+    }
+    setFile(next);
+    setError(null);
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -60,38 +90,68 @@ export function UploadForm({ ttlHours }: { ttlHours: number }) {
     <form onSubmit={submit} className="space-y-5">
       <div>
         <label
-          htmlFor="file"
-          className="block cursor-pointer rounded-lg border-2 border-dashed border-slate-300 bg-white p-8 text-center hover:border-slate-400"
+          htmlFor={inputId}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDragActive(true);
+          }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragActive(false);
+            chooseFile(event.dataTransfer.files?.[0] ?? null);
+          }}
+          className={cn(
+            "flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed bg-card px-8 py-10 text-center transition-colors",
+            dragActive ? "border-primary bg-accent" : "border-border hover:border-muted-foreground/50",
+          )}
         >
-          <span className="text-sm text-slate-600">
-            {file ? (
-              <>
-                <strong className="text-slate-900">{file.name}</strong>
-                <br />
-                {(file.size / 1024).toFixed(0)} KB · {file.type}
-              </>
-            ) : (
-              <>
-                Choose an image, a short video, or an audio clip
-                <br />
-                <span className="text-xs text-slate-500">
-                  Image: JPEG, PNG, WebP, or BMP · Video: MP4, MOV, WebM, or MKV,
-                  up to 60 seconds and 100 MB · Audio: WAV, FLAC, OGG, or MP3, up
-                  to 5 minutes and 25 MB
-                </span>
-              </>
-            )}
-          </span>
+          {file ? (
+            <>
+              <MediaKindIcon type={file.type} />
+              <div>
+                <p className="font-medium">{file.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(file.size / 1024).toFixed(0)} KB · {file.type}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={(event) => {
+                  event.preventDefault();
+                  chooseFile(null);
+                  if (inputRef.current) inputRef.current.value = "";
+                }}
+              >
+                Choose a different file
+              </Button>
+            </>
+          ) : (
+            <>
+              <UploadCloud className="size-8 text-muted-foreground" aria-hidden="true" />
+              <div>
+                <p className="font-medium">
+                  Drag and drop a file, or{" "}
+                  <span className="text-primary underline underline-offset-4">browse</span>
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Image: JPEG, PNG, WebP, or BMP · Video: MP4, MOV, WebM, or MKV, up to 60
+                  seconds and 100&nbsp;MB · Audio: WAV, FLAC, OGG, or MP3, up to 5 minutes and
+                  25&nbsp;MB
+                </p>
+              </div>
+            </>
+          )}
         </label>
         <input
-          id="file"
+          ref={inputRef}
+          id={inputId}
           type="file"
           accept={ACCEPTED.join(",")}
           className="sr-only"
-          onChange={(event) => {
-            setFile(event.target.files?.[0] ?? null);
-            setError(null);
-          }}
+          onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
         />
       </div>
 
@@ -100,35 +160,29 @@ export function UploadForm({ ttlHours }: { ttlHours: number }) {
         box is unchecked by default, resets with each file, and the submit button
         stays disabled until it is ticked — nothing leaves the browser before then.
       */}
-      <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white p-4">
-        <input
-          type="checkbox"
+      <div className="flex items-start gap-3 rounded-lg border bg-card p-4">
+        <Checkbox
+          id={consentId}
           checked={consented}
-          onChange={(event) => setConsented(event.target.checked)}
-          className="mt-1"
+          onCheckedChange={(checked) => setConsented(checked === true)}
+          className="mt-0.5"
         />
-        <span className="text-sm text-slate-700">
-          I understand this file will be uploaded to VeriFrame&rsquo;s servers for
-          analysis and automatically deleted after {ttlHours} hours. I can delete it
-          sooner from the report page.
-        </span>
-      </label>
+        <Label htmlFor={consentId} className="cursor-pointer font-normal leading-relaxed">
+          I understand this file will be uploaded to VeriFrame&rsquo;s servers for analysis
+          and automatically deleted after {ttlHours} hours. I can delete it sooner from the
+          report page.
+        </Label>
+      </div>
 
       {error && (
-        <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      <button
-        type="submit"
-        disabled={!file || !consented || submitting}
-        className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-      >
-        {submitting
-          ? "Uploading…"
-          : `Analyse this ${file ? mediaKindLabel(file.type) : "image"}`}
-      </button>
+      <Button type="submit" disabled={!file || !consented || submitting} size="lg" className="w-full">
+        {submitting ? "Uploading…" : `Analyse this ${file ? mediaKindLabel(file.type) : "file"}`}
+      </Button>
     </form>
   );
 }

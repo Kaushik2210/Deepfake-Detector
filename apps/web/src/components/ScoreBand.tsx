@@ -28,22 +28,24 @@ export function ScoreBand({ score, uncertainty }: ScoreBandProps) {
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="flex items-baseline gap-3">
-          <span
-            className={cn(
-              "inline-block rounded px-3 py-1 text-lg font-semibold text-white",
-              BAND_COLOR[band.id],
-            )}
-          >
-            {band.label}
-          </span>
-          <span className="text-sm text-slate-600">{band.copy}</span>
-        </div>
+      <div className="flex flex-wrap items-baseline gap-3">
+        <span
+          className={cn(
+            "inline-block rounded-md px-3 py-1 text-lg font-semibold text-white",
+            BAND_COLOR[band.id],
+          )}
+        >
+          {band.label}
+        </span>
+        <span className="text-sm text-muted-foreground">{band.copy}</span>
       </div>
 
       <div>
-        <div className="relative h-8 w-full overflow-hidden rounded border border-slate-300">
+        <div
+          className="relative h-8 w-full overflow-hidden rounded-md border"
+          role="img"
+          aria-label={`Likely range ${lo.toFixed(2)} to ${hi.toFixed(2)} on a 0 to 1 scale, point estimate ${score.toFixed(3)}`}
+        >
           {BAND_DEFINITIONS.map((definition) => (
             <div
               key={definition.id}
@@ -56,25 +58,24 @@ export function ScoreBand({ score, uncertainty }: ScoreBandProps) {
           ))}
 
           <div
-            className="absolute top-0 h-full border-x-2 border-slate-900 bg-slate-900/25"
+            className="absolute top-0 h-full border-x-2 border-foreground bg-foreground/25"
             style={{ left: `${lo * 100}%`, width: `${Math.max(hi - lo, 0.004) * 100}%` }}
-            title={`Likely range ${lo.toFixed(3)} to ${hi.toFixed(3)}`}
           />
         </div>
 
-        <div className="mt-1 flex justify-between text-xs text-slate-500">
+        <div className="mt-1 flex justify-between text-xs text-muted-foreground">
           <span>0.0</span>
           <span>0.5</span>
           <span>1.0</span>
         </div>
       </div>
 
-      <p className="text-sm text-slate-700">
+      <p className="text-sm text-foreground/90">
         Estimated likelihood of manipulation:{" "}
-        <strong>
+        <strong className="font-semibold">
           {lo.toFixed(2)} – {hi.toFixed(2)}
         </strong>{" "}
-        <span className="text-slate-500">(point estimate {score.toFixed(3)})</span>
+        <span className="text-muted-foreground">(point estimate {score.toFixed(3)})</span>
       </p>
     </div>
   );
