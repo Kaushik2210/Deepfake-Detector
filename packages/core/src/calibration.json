@@ -11,29 +11,40 @@
       "final_reporting_samples": 50,
       "seed": 0,
       "report": "services/inference/eval/reports/audio-2026-08-28.md"
+    },
+    "df40faces": {
+      "generated_at": "2026-08-31T13:32:06.584020+00:00",
+      "calibration_dataset": "deepfakeface",
+      "reporting_dataset": "df40faces",
+      "samples_per_dataset": 400,
+      "report_pool_samples": 400,
+      "validation_samples": 200,
+      "final_reporting_samples": 200,
+      "seed": 0,
+      "report": "services/inference/eval/reports/2026-08-31.md"
     }
   },
   "temperature": {
     "spatial": 10.000000000000007,
-    "frequency": 0.7500000000000002,
+    "frequency": 0.6500000000000001,
     "audio": 1.8000000000000007,
     "audio_frequency": 0.9700000000000002
   },
   "stream_weights": {
-    "frequency": 0.8642,
-    "spatial": 0.1358,
+    "frequency": 0.4851,
+    "spatial": 0.5149,
     "audio": 0.757,
     "audio_frequency": 0.243
   },
   "stream_weight_rationale": {
-    "frequency": "AUC 0.713, i.e. 0.213 above chance, normalised across streams",
-    "spatial": "AUC 0.534, i.e. 0.034 above chance, normalised across streams",
+    "frequency": "AUC 0.586, i.e. 0.086 above chance, normalised across streams",
+    "spatial": "AUC 0.592, i.e. 0.092 above chance, normalised across streams",
     "audio": "AUC 0.976, i.e. 0.476 above chance, normalised across streams",
     "audio_frequency": "AUC 0.653, i.e. 0.153 above chance, normalised across streams"
   },
   "stream_validation_auc": {
-    "frequency": 0.7132,
-    "spatial": 0.5335,
+    "frequency": 0.5864,
+    "spatial": 0.5917,
     "audio": 0.976,
     "audio_frequency": 0.6528
   }
