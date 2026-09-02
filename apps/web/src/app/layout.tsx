@@ -6,6 +6,22 @@ import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+// Runs before hydration so the correct theme class is present on first
+// paint — without this, the page would flash the light theme for a dark-mode
+// visitor before React ever runs. Kept as a tiny inline script rather than a
+// dependency: it does one thing (read a stored choice or the OS preference,
+// toggle a class) that doesn't warrant next-themes for a single boolean.
+const NO_FLASH_THEME_SCRIPT = `
+(function () {
+  try {
+    var stored = localStorage.getItem("veriframe-theme");
+    var dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", dark);
+  } catch (e) {}
+})();
+`;
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -18,12 +34,16 @@ export const metadata: Metadata = {
 const NAV_LINKS = [
   { href: "/", label: "Analyse" },
   { href: "/accuracy", label: "Accuracy" },
+  { href: "/methodology", label: "Methodology" },
   { href: "/privacy", label: "Privacy" },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
+    <html lang="en" className={cn("font-sans", geist.variable)} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
+      </head>
       {/*
         Browser extensions (Grammarly, password managers) inject attributes onto
         <body> before React hydrates, which reads as a server/client mismatch.
@@ -43,27 +63,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <TooltipProvider delayDuration={200}>
           <Providers>
             <header className="border-b bg-card/60 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-              <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-                <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+              <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-4 sm:gap-4 sm:px-6">
+                <Link
+                  href="/"
+                  className="flex shrink-0 items-center gap-2 text-lg font-semibold tracking-tight"
+                >
                   <span
                     aria-hidden="true"
                     className="inline-flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
                   >
                     V
                   </span>
-                  VeriFrame
+                  <span className="hidden sm:inline">VeriFrame</span>
                 </Link>
-                <nav aria-label="Primary" className="flex gap-1 text-sm">
+                {/* Scrolls within its own row on narrow viewports rather than
+                    letting the whole page overflow horizontally — logo and
+                    toggle stay put either way. */}
+                <nav
+                  aria-label="Primary"
+                  className="flex min-w-0 flex-1 gap-1 overflow-x-auto text-sm"
+                >
                   {NAV_LINKS.map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}
-                      className="rounded-md px-3 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      className="shrink-0 rounded-md px-3 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
                       {link.label}
                     </Link>
                   ))}
                 </nav>
+                <ThemeToggle />
               </div>
             </header>
 
