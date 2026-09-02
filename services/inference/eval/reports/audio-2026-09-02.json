@@ -1,0 +1,1834 @@
+{
+  "provenance": {
+    "generated_at": "2026-09-02T17:17:34.803924+00:00",
+    "calibration_dataset": "asvspoof2019",
+    "reporting_dataset": "asvspoof2021",
+    "samples_per_dataset": 120,
+    "report_pool_samples": 120,
+    "validation_samples": 60,
+    "final_reporting_samples": 60,
+    "seed": 0
+  },
+  "datasets": {
+    "asvspoof2019": {
+      "hf_id": "Bisher/ASVspoof_2019_LA",
+      "licence": "ODC-By",
+      "commercial_use": true,
+      "description": "ASVspoof2019 LA evaluation partition -- the same corpus AASIST was trained on. Used to fit calibration; measures in-distribution performance, not generalisation."
+    },
+    "asvspoof2021": {
+      "hf_id": "Bisher/ASVspoof_2021_DF",
+      "licence": "ODC-By",
+      "commercial_use": true,
+      "description": "ASVspoof2021 DF (speech deepfake track) evaluation partition -- different attack algorithms and lossy-codec conditions than 2019. Held out entirely for reporting."
+    }
+  },
+  "coverage": {
+    "asvspoof2019": {
+      "scored": 120,
+      "seconds": 77.7
+    },
+    "asvspoof2021": {
+      "scored": 120,
+      "validation_scored": 60,
+      "final_reporting_scored": 60,
+      "seconds": 1215.4
+    }
+  },
+  "in_dataset_metrics": {
+    "audio": {
+      "n": 120,
+      "n_positive": 60,
+      "n_negative": 60,
+      "auc": 1.0,
+      "auc_ci95": [
+        0.9999999999999999,
+        1.0
+      ],
+      "eer": 0.0,
+      "eer_threshold": 0.18185539543628693,
+      "thresholds": [
+        {
+          "target_fpr": 0.01,
+          "tpr": null,
+          "threshold": null,
+          "measurable": false,
+          "note": "not measurable: 60 authentic samples resolve no finer than 1.67% FPR, so a 1.00% figure would rest on fewer than one false positive"
+        },
+        {
+          "target_fpr": 0.001,
+          "tpr": null,
+          "threshold": null,
+          "measurable": false,
+          "note": "not measurable: 60 authentic samples resolve no finer than 1.67% FPR, so a 0.10% figure would rest on fewer than one false positive"
+        }
+      ],
+      "ece": 0.021499436412522402,
+      "calibration_bins": [
+        {
+          "lower": 0.0,
+          "upper": 0.1,
+          "count": 60,
+          "mean_confidence": 0.0005369388843957287,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.1,
+          "upper": 0.2,
+          "count": 1,
+          "mean_confidence": 0.18185539543628693,
+          "observed_frequency": 1.0
+        },
+        {
+          "lower": 0.2,
+          "upper": 0.30000000000000004,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.30000000000000004,
+          "upper": 0.4,
+          "count": 1,
+          "mean_confidence": 0.36476680636405945,
+          "observed_frequency": 1.0
+        },
+        {
+          "lower": 0.4,
+          "upper": 0.5,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.5,
+          "upper": 0.6000000000000001,
+          "count": 2,
+          "mean_confidence": 0.5506099760532379,
+          "observed_frequency": 1.0
+        },
+        {
+          "lower": 0.6000000000000001,
+          "upper": 0.7000000000000001,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.7000000000000001,
+          "upper": 0.8,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.8,
+          "upper": 0.9,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.9,
+          "upper": 1.0,
+          "count": 56,
+          "mean_confidence": 0.9965078894581113,
+          "observed_frequency": 1.0
+        }
+      ],
+      "roc_points": [
+        {
+          "fpr": 0.0,
+          "tpr": 0.0
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 0.18333333333333332
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 0.23333333333333334
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 0.25
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 0.31666666666666665
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 1.0
+        },
+        {
+          "fpr": 1.0,
+          "tpr": 1.0
+        }
+      ],
+      "mean_score_positive": 0.957538066059351,
+      "mean_score_negative": 0.0005369388843957287
+    },
+    "audio_frequency": {
+      "n": 120,
+      "n_positive": 60,
+      "n_negative": 60,
+      "auc": 0.829861111111111,
+      "auc_ci95": [
+        0.7457313988095238,
+        0.9003290069545117
+      ],
+      "eer": 0.2833333333333333,
+      "eer_threshold": 0.389,
+      "thresholds": [
+        {
+          "target_fpr": 0.01,
+          "tpr": null,
+          "threshold": null,
+          "measurable": false,
+          "note": "not measurable: 60 authentic samples resolve no finer than 1.67% FPR, so a 1.00% figure would rest on fewer than one false positive"
+        },
+        {
+          "target_fpr": 0.001,
+          "tpr": null,
+          "threshold": null,
+          "measurable": false,
+          "note": "not measurable: 60 authentic samples resolve no finer than 1.67% FPR, so a 0.10% figure would rest on fewer than one false positive"
+        }
+      ],
+      "ece": 0.07749999999999999,
+      "calibration_bins": [
+        {
+          "lower": 0.0,
+          "upper": 0.1,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.1,
+          "upper": 0.2,
+          "count": 9,
+          "mean_confidence": 0.1763222222222222,
+          "observed_frequency": 0.1111111111111111
+        },
+        {
+          "lower": 0.2,
+          "upper": 0.30000000000000004,
+          "count": 22,
+          "mean_confidence": 0.24667727272727277,
+          "observed_frequency": 0.2727272727272727
+        },
+        {
+          "lower": 0.30000000000000004,
+          "upper": 0.4,
+          "count": 26,
+          "mean_confidence": 0.34478461538461536,
+          "observed_frequency": 0.3076923076923077
+        },
+        {
+          "lower": 0.4,
+          "upper": 0.5,
+          "count": 12,
+          "mean_confidence": 0.4414166666666666,
+          "observed_frequency": 0.25
+        },
+        {
+          "lower": 0.5,
+          "upper": 0.6000000000000001,
+          "count": 18,
+          "mean_confidence": 0.5595000000000001,
+          "observed_frequency": 0.6111111111111112
+        },
+        {
+          "lower": 0.6000000000000001,
+          "upper": 0.7000000000000001,
+          "count": 7,
+          "mean_confidence": 0.668457142857143,
+          "observed_frequency": 0.7142857142857143
+        },
+        {
+          "lower": 0.7000000000000001,
+          "upper": 0.8,
+          "count": 5,
+          "mean_confidence": 0.7531,
+          "observed_frequency": 1.0
+        },
+        {
+          "lower": 0.8,
+          "upper": 0.9,
+          "count": 12,
+          "mean_confidence": 0.8600499999999999,
+          "observed_frequency": 1.0
+        },
+        {
+          "lower": 0.9,
+          "upper": 1.0,
+          "count": 9,
+          "mean_confidence": 0.9205666666666666,
+          "observed_frequency": 1.0
+        }
+      ],
+      "roc_points": [
+        {
+          "fpr": 0.0,
+          "tpr": 0.0
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 0.016666666666666666
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 0.43333333333333335
+        },
+        {
+          "fpr": 0.016666666666666666,
+          "tpr": 0.43333333333333335
+        },
+        {
+          "fpr": 0.016666666666666666,
+          "tpr": 0.5
+        },
+        {
+          "fpr": 0.03333333333333333,
+          "tpr": 0.5
+        },
+        {
+          "fpr": 0.03333333333333333,
+          "tpr": 0.5333333333333333
+        },
+        {
+          "fpr": 0.05,
+          "tpr": 0.5333333333333333
+        },
+        {
+          "fpr": 0.05,
+          "tpr": 0.6333333333333333
+        },
+        {
+          "fpr": 0.06666666666666667,
+          "tpr": 0.6333333333333333
+        },
+        {
+          "fpr": 0.08333333333333333,
+          "tpr": 0.65
+        },
+        {
+          "fpr": 0.08333333333333333,
+          "tpr": 0.6666666666666666
+        },
+        {
+          "fpr": 0.1,
+          "tpr": 0.6666666666666666
+        },
+        {
+          "fpr": 0.1,
+          "tpr": 0.6833333333333333
+        },
+        {
+          "fpr": 0.15,
+          "tpr": 0.6833333333333333
+        },
+        {
+          "fpr": 0.15,
+          "tpr": 0.7333333333333333
+        },
+        {
+          "fpr": 0.18333333333333332,
+          "tpr": 0.7333333333333333
+        },
+        {
+          "fpr": 0.18333333333333332,
+          "tpr": 0.75
+        },
+        {
+          "fpr": 0.31666666666666665,
+          "tpr": 0.75
+        },
+        {
+          "fpr": 0.31666666666666665,
+          "tpr": 0.7666666666666667
+        },
+        {
+          "fpr": 0.35,
+          "tpr": 0.7666666666666667
+        },
+        {
+          "fpr": 0.35,
+          "tpr": 0.7833333333333333
+        },
+        {
+          "fpr": 0.36666666666666664,
+          "tpr": 0.7833333333333333
+        },
+        {
+          "fpr": 0.36666666666666664,
+          "tpr": 0.8166666666666667
+        },
+        {
+          "fpr": 0.45,
+          "tpr": 0.8166666666666667
+        },
+        {
+          "fpr": 0.45,
+          "tpr": 0.8333333333333334
+        },
+        {
+          "fpr": 0.4666666666666667,
+          "tpr": 0.8333333333333334
+        },
+        {
+          "fpr": 0.4666666666666667,
+          "tpr": 0.8666666666666667
+        },
+        {
+          "fpr": 0.48333333333333334,
+          "tpr": 0.8666666666666667
+        },
+        {
+          "fpr": 0.48333333333333334,
+          "tpr": 0.8833333333333333
+        },
+        {
+          "fpr": 0.6,
+          "tpr": 0.8833333333333333
+        },
+        {
+          "fpr": 0.6,
+          "tpr": 0.9166666666666666
+        },
+        {
+          "fpr": 0.8166666666666667,
+          "tpr": 0.9166666666666666
+        },
+        {
+          "fpr": 0.8166666666666667,
+          "tpr": 0.9333333333333333
+        },
+        {
+          "fpr": 0.8666666666666667,
+          "tpr": 0.9333333333333333
+        },
+        {
+          "fpr": 0.8666666666666667,
+          "tpr": 0.9833333333333333
+        },
+        {
+          "fpr": 1.0,
+          "tpr": 0.9833333333333333
+        },
+        {
+          "fpr": 1.0,
+          "tpr": 1.0
+        }
+      ],
+      "mean_score_positive": 0.6299899999999999,
+      "mean_score_negative": 0.3432866666666667
+    }
+  },
+  "weight_validation_metrics": {
+    "audio": {
+      "n": 60,
+      "n_positive": 30,
+      "n_negative": 30,
+      "auc": 0.97,
+      "auc_ci95": [
+        0.9185387796945702,
+        1.0
+      ],
+      "eer": 0.04999999999999999,
+      "eer_threshold": 0.9670650959014893,
+      "thresholds": [
+        {
+          "target_fpr": 0.01,
+          "tpr": null,
+          "threshold": null,
+          "measurable": false,
+          "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 1.00% figure would rest on fewer than one false positive"
+        },
+        {
+          "target_fpr": 0.001,
+          "tpr": null,
+          "threshold": null,
+          "measurable": false,
+          "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 0.10% figure would rest on fewer than one false positive"
+        }
+      ],
+      "ece": 0.11283449055263756,
+      "calibration_bins": [
+        {
+          "lower": 0.0,
+          "upper": 0.1,
+          "count": 25,
+          "mean_confidence": 0.0034863097307834324,
+          "observed_frequency": 0.08
+        },
+        {
+          "lower": 0.1,
+          "upper": 0.2,
+          "count": 1,
+          "mean_confidence": 0.16903963685035706,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.2,
+          "upper": 0.30000000000000004,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.30000000000000004,
+          "upper": 0.4,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.4,
+          "upper": 0.5,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.5,
+          "upper": 0.6000000000000001,
+          "count": 1,
+          "mean_confidence": 0.5760530829429626,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.6000000000000001,
+          "upper": 0.7000000000000001,
+          "count": 1,
+          "mean_confidence": 0.6555753946304321,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.7000000000000001,
+          "upper": 0.8,
+          "count": 1,
+          "mean_confidence": 0.7714594006538391,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.8,
+          "upper": 0.9,
+          "count": 1,
+          "mean_confidence": 0.8676897883415222,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.9,
+          "upper": 1.0,
+          "count": 30,
+          "mean_confidence": 0.9939136624336242,
+          "observed_frequency": 0.9333333333333333
+        }
+      ],
+      "roc_points": [
+        {
+          "fpr": 0.0,
+          "tpr": 0.0
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 0.06666666666666667
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 0.6333333333333333
+        },
+        {
+          "fpr": 0.03333333333333333,
+          "tpr": 0.6333333333333333
+        },
+        {
+          "fpr": 0.03333333333333333,
+          "tpr": 0.9333333333333333
+        },
+        {
+          "fpr": 0.23333333333333334,
+          "tpr": 0.9333333333333333
+        },
+        {
+          "fpr": 0.23333333333333334,
+          "tpr": 0.9666666666666667
+        },
+        {
+          "fpr": 0.36666666666666664,
+          "tpr": 0.9666666666666667
+        },
+        {
+          "fpr": 0.36666666666666664,
+          "tpr": 1.0
+        },
+        {
+          "fpr": 1.0,
+          "tpr": 1.0
+        }
+      ],
+      "mean_score_positive": 0.9309842329016343,
+      "mean_score_negative": 0.1671619310882799
+    },
+    "audio_frequency": {
+      "n": 60,
+      "n_positive": 30,
+      "n_negative": 30,
+      "auc": 0.6277777777777778,
+      "auc_ci95": [
+        0.47046651785714283,
+        0.7582871742861601
+      ],
+      "eer": 0.43333333333333335,
+      "eer_threshold": 0.4346,
+      "thresholds": [
+        {
+          "target_fpr": 0.01,
+          "tpr": null,
+          "threshold": null,
+          "measurable": false,
+          "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 1.00% figure would rest on fewer than one false positive"
+        },
+        {
+          "target_fpr": 0.001,
+          "tpr": null,
+          "threshold": null,
+          "measurable": false,
+          "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 0.10% figure would rest on fewer than one false positive"
+        }
+      ],
+      "ece": 0.1164816666666667,
+      "calibration_bins": [
+        {
+          "lower": 0.0,
+          "upper": 0.1,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        },
+        {
+          "lower": 0.1,
+          "upper": 0.2,
+          "count": 6,
+          "mean_confidence": 0.16213333333333335,
+          "observed_frequency": 0.3333333333333333
+        },
+        {
+          "lower": 0.2,
+          "upper": 0.30000000000000004,
+          "count": 2,
+          "mean_confidence": 0.24805,
+          "observed_frequency": 0.5
+        },
+        {
+          "lower": 0.30000000000000004,
+          "upper": 0.4,
+          "count": 17,
+          "mean_confidence": 0.3555470588235294,
+          "observed_frequency": 0.47058823529411764
+        },
+        {
+          "lower": 0.4,
+          "upper": 0.5,
+          "count": 12,
+          "mean_confidence": 0.44310000000000005,
+          "observed_frequency": 0.3333333333333333
+        },
+        {
+          "lower": 0.5,
+          "upper": 0.6000000000000001,
+          "count": 8,
+          "mean_confidence": 0.5400625,
+          "observed_frequency": 0.375
+        },
+        {
+          "lower": 0.6000000000000001,
+          "upper": 0.7000000000000001,
+          "count": 4,
+          "mean_confidence": 0.633625,
+          "observed_frequency": 0.75
+        },
+        {
+          "lower": 0.7000000000000001,
+          "upper": 0.8,
+          "count": 8,
+          "mean_confidence": 0.7519375,
+          "observed_frequency": 0.75
+        },
+        {
+          "lower": 0.8,
+          "upper": 0.9,
+          "count": 3,
+          "mean_confidence": 0.8722,
+          "observed_frequency": 1.0
+        },
+        {
+          "lower": 0.9,
+          "upper": 1.0,
+          "count": 0,
+          "mean_confidence": 0.0,
+          "observed_frequency": 0.0
+        }
+      ],
+      "roc_points": [
+        {
+          "fpr": 0.0,
+          "tpr": 0.0
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 0.03333333333333333
+        },
+        {
+          "fpr": 0.0,
+          "tpr": 0.13333333333333333
+        },
+        {
+          "fpr": 0.03333333333333333,
+          "tpr": 0.13333333333333333
+        },
+        {
+          "fpr": 0.03333333333333333,
+          "tpr": 0.2
+        },
+        {
+          "fpr": 0.06666666666666667,
+          "tpr": 0.2
+        },
+        {
+          "fpr": 0.06666666666666667,
+          "tpr": 0.36666666666666664
+        },
+        {
+          "fpr": 0.1,
+          "tpr": 0.36666666666666664
+        },
+        {
+          "fpr": 0.1,
+          "tpr": 0.43333333333333335
+        },
+        {
+          "fpr": 0.16666666666666666,
+          "tpr": 0.43333333333333335
+        },
+        {
+          "fpr": 0.16666666666666666,
+          "tpr": 0.4666666666666667
+        },
+        {
+          "fpr": 0.23333333333333334,
+          "tpr": 0.4666666666666667
+        },
+        {
+          "fpr": 0.23333333333333334,
+          "tpr": 0.5
+        },
+        {
+          "fpr": 0.3,
+          "tpr": 0.5
+        },
+        {
+          "fpr": 0.3,
+          "tpr": 0.5333333333333333
+        },
+        {
+          "fpr": 0.3333333333333333,
+          "tpr": 0.5333333333333333
+        },
+        {
+          "fpr": 0.3333333333333333,
+          "tpr": 0.5666666666666667
+        },
+        {
+          "fpr": 0.43333333333333335,
+          "tpr": 0.5666666666666667
+        },
+        {
+          "fpr": 0.43333333333333335,
+          "tpr": 0.6
+        },
+        {
+          "fpr": 0.5,
+          "tpr": 0.6
+        },
+        {
+          "fpr": 0.5,
+          "tpr": 0.6333333333333333
+        },
+        {
+          "fpr": 0.5333333333333333,
+          "tpr": 0.6333333333333333
+        },
+        {
+          "fpr": 0.5333333333333333,
+          "tpr": 0.6666666666666666
+        },
+        {
+          "fpr": 0.6666666666666666,
+          "tpr": 0.6666666666666666
+        },
+        {
+          "fpr": 0.6666666666666666,
+          "tpr": 0.7
+        },
+        {
+          "fpr": 0.7,
+          "tpr": 0.7
+        },
+        {
+          "fpr": 0.7,
+          "tpr": 0.7666666666666667
+        },
+        {
+          "fpr": 0.8,
+          "tpr": 0.7666666666666667
+        },
+        {
+          "fpr": 0.8,
+          "tpr": 0.8666666666666667
+        },
+        {
+          "fpr": 0.8333333333333334,
+          "tpr": 0.8666666666666667
+        },
+        {
+          "fpr": 0.8333333333333334,
+          "tpr": 0.9
+        },
+        {
+          "fpr": 0.8666666666666667,
+          "tpr": 0.9
+        },
+        {
+          "fpr": 0.8666666666666667,
+          "tpr": 0.9333333333333333
+        },
+        {
+          "fpr": 0.9,
+          "tpr": 0.9333333333333333
+        },
+        {
+          "fpr": 0.9,
+          "tpr": 0.9666666666666667
+        },
+        {
+          "fpr": 1.0,
+          "tpr": 0.9666666666666667
+        },
+        {
+          "fpr": 1.0,
+          "tpr": 1.0
+        }
+      ],
+      "mean_score_positive": 0.5248499999999999,
+      "mean_score_negative": 0.41906666666666664
+    }
+  },
+  "weight_stability": {
+    "audio": {
+      "median": 0.78505,
+      "p10": 0.6852900000000001,
+      "p90": 0.9429900000000001,
+      "n_replicates": 500
+    },
+    "audio_frequency": {
+      "median": 0.21495,
+      "p10": 0.05701000000000002,
+      "p90": 0.31471,
+      "n_replicates": 500
+    }
+  },
+  "cross_dataset_metrics": {
+    "audio": {
+      "raw": {
+        "n": 60,
+        "n_positive": 30,
+        "n_negative": 30,
+        "auc": 0.9766666666666668,
+        "auc_ci95": [
+          0.939665324085614,
+          1.0
+        ],
+        "eer": 0.049999999999999996,
+        "eer_threshold": 0.01064677257090807,
+        "thresholds": [
+          {
+            "target_fpr": 0.01,
+            "tpr": null,
+            "threshold": null,
+            "measurable": false,
+            "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 1.00% figure would rest on fewer than one false positive"
+          },
+          {
+            "target_fpr": 0.001,
+            "tpr": null,
+            "threshold": null,
+            "measurable": false,
+            "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 0.10% figure would rest on fewer than one false positive"
+          }
+        ],
+        "ece": 0.12192865448193846,
+        "calibration_bins": [
+          {
+            "lower": 0.0,
+            "upper": 0.1,
+            "count": 32,
+            "mean_confidence": 0.004601909089887557,
+            "observed_frequency": 0.125
+          },
+          {
+            "lower": 0.1,
+            "upper": 0.2,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.2,
+            "upper": 0.30000000000000004,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.30000000000000004,
+            "upper": 0.4,
+            "count": 2,
+            "mean_confidence": 0.3569401651620865,
+            "observed_frequency": 1.0
+          },
+          {
+            "lower": 0.4,
+            "upper": 0.5,
+            "count": 1,
+            "mean_confidence": 0.47858554124832153,
+            "observed_frequency": 1.0
+          },
+          {
+            "lower": 0.5,
+            "upper": 0.6000000000000001,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.6000000000000001,
+            "upper": 0.7000000000000001,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.7000000000000001,
+            "upper": 0.8,
+            "count": 1,
+            "mean_confidence": 0.7110082507133484,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.8,
+            "upper": 0.9,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.9,
+            "upper": 1.0,
+            "count": 24,
+            "mean_confidence": 0.997684915860494,
+            "observed_frequency": 0.9583333333333334
+          }
+        ],
+        "roc_points": [
+          {
+            "fpr": 0.0,
+            "tpr": 0.0
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.03333333333333333
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.1
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.13333333333333333
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.2
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.6666666666666666
+          },
+          {
+            "fpr": 0.03333333333333333,
+            "tpr": 0.6666666666666666
+          },
+          {
+            "fpr": 0.03333333333333333,
+            "tpr": 0.7666666666666667
+          },
+          {
+            "fpr": 0.06666666666666667,
+            "tpr": 0.7666666666666667
+          },
+          {
+            "fpr": 0.06666666666666667,
+            "tpr": 0.9666666666666667
+          },
+          {
+            "fpr": 0.2,
+            "tpr": 0.9666666666666667
+          },
+          {
+            "fpr": 0.2,
+            "tpr": 1.0
+          },
+          {
+            "fpr": 1.0,
+            "tpr": 1.0
+          }
+        ],
+        "mean_score_positive": 0.8089859938132576,
+        "mean_score_negative": 0.057519779313879006
+      },
+      "calibrated": {
+        "n": 60,
+        "n_positive": 30,
+        "n_negative": 30,
+        "auc": 0.9766666666666668,
+        "auc_ci95": [
+          0.939665324085614,
+          1.0
+        ],
+        "eer": 0.049999999999999996,
+        "eer_threshold": 0.015987785377581634,
+        "thresholds": [
+          {
+            "target_fpr": 0.01,
+            "tpr": null,
+            "threshold": null,
+            "measurable": false,
+            "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 1.00% figure would rest on fewer than one false positive"
+          },
+          {
+            "target_fpr": 0.001,
+            "tpr": null,
+            "threshold": null,
+            "measurable": false,
+            "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 0.10% figure would rest on fewer than one false positive"
+          }
+        ],
+        "ece": 0.11995570919481446,
+        "calibration_bins": [
+          {
+            "lower": 0.0,
+            "upper": 0.1,
+            "count": 31,
+            "mean_confidence": 0.0027638636942164977,
+            "observed_frequency": 0.0967741935483871
+          },
+          {
+            "lower": 0.1,
+            "upper": 0.2,
+            "count": 1,
+            "mean_confidence": 0.10937778526228294,
+            "observed_frequency": 1.0
+          },
+          {
+            "lower": 0.2,
+            "upper": 0.30000000000000004,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.30000000000000004,
+            "upper": 0.4,
+            "count": 1,
+            "mean_confidence": 0.33087789097445974,
+            "observed_frequency": 1.0
+          },
+          {
+            "lower": 0.4,
+            "upper": 0.5,
+            "count": 2,
+            "mean_confidence": 0.443973502916824,
+            "observed_frequency": 1.0
+          },
+          {
+            "lower": 0.5,
+            "upper": 0.6000000000000001,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.6000000000000001,
+            "upper": 0.7000000000000001,
+            "count": 1,
+            "mean_confidence": 0.6939054611268354,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.7000000000000001,
+            "upper": 0.8,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.8,
+            "upper": 0.9,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.9,
+            "upper": 1.0,
+            "count": 24,
+            "mean_confidence": 0.9965549811313806,
+            "observed_frequency": 0.9583333333333334
+          }
+        ],
+        "roc_points": [
+          {
+            "fpr": 0.0,
+            "tpr": 0.0
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.2
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.6666666666666666
+          },
+          {
+            "fpr": 0.03333333333333333,
+            "tpr": 0.6666666666666666
+          },
+          {
+            "fpr": 0.03333333333333333,
+            "tpr": 0.7666666666666667
+          },
+          {
+            "fpr": 0.06666666666666667,
+            "tpr": 0.7666666666666667
+          },
+          {
+            "fpr": 0.06666666666666667,
+            "tpr": 0.9666666666666667
+          },
+          {
+            "fpr": 0.2,
+            "tpr": 0.9666666666666667
+          },
+          {
+            "fpr": 0.2,
+            "tpr": 1.0
+          },
+          {
+            "fpr": 0.8666666666666667,
+            "tpr": 1.0
+          },
+          {
+            "fpr": 1.0,
+            "tpr": 1.0
+          }
+        ],
+        "mean_score_positive": 0.8102129481471418,
+        "mean_score_negative": 0.057290634015227083
+      }
+    },
+    "audio_frequency": {
+      "raw": {
+        "n": 60,
+        "n_positive": 30,
+        "n_negative": 30,
+        "auc": 0.6866666666666665,
+        "auc_ci95": [
+          0.5489186570566779,
+          0.815826629797218
+        ],
+        "eer": 0.3666666666666667,
+        "eer_threshold": 0.3719,
+        "thresholds": [
+          {
+            "target_fpr": 0.01,
+            "tpr": null,
+            "threshold": null,
+            "measurable": false,
+            "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 1.00% figure would rest on fewer than one false positive"
+          },
+          {
+            "target_fpr": 0.001,
+            "tpr": null,
+            "threshold": null,
+            "measurable": false,
+            "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 0.10% figure would rest on fewer than one false positive"
+          }
+        ],
+        "ece": 0.14805500000000002,
+        "calibration_bins": [
+          {
+            "lower": 0.0,
+            "upper": 0.1,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          },
+          {
+            "lower": 0.1,
+            "upper": 0.2,
+            "count": 5,
+            "mean_confidence": 0.15282,
+            "observed_frequency": 0.4
+          },
+          {
+            "lower": 0.2,
+            "upper": 0.30000000000000004,
+            "count": 14,
+            "mean_confidence": 0.24835,
+            "observed_frequency": 0.42857142857142855
+          },
+          {
+            "lower": 0.30000000000000004,
+            "upper": 0.4,
+            "count": 16,
+            "mean_confidence": 0.3534875,
+            "observed_frequency": 0.25
+          },
+          {
+            "lower": 0.4,
+            "upper": 0.5,
+            "count": 8,
+            "mean_confidence": 0.45013749999999997,
+            "observed_frequency": 0.5
+          },
+          {
+            "lower": 0.5,
+            "upper": 0.6000000000000001,
+            "count": 8,
+            "mean_confidence": 0.5519375,
+            "observed_frequency": 0.75
+          },
+          {
+            "lower": 0.6000000000000001,
+            "upper": 0.7000000000000001,
+            "count": 3,
+            "mean_confidence": 0.6607333333333333,
+            "observed_frequency": 0.6666666666666666
+          },
+          {
+            "lower": 0.7000000000000001,
+            "upper": 0.8,
+            "count": 4,
+            "mean_confidence": 0.730225,
+            "observed_frequency": 1.0
+          },
+          {
+            "lower": 0.8,
+            "upper": 0.9,
+            "count": 2,
+            "mean_confidence": 0.8059000000000001,
+            "observed_frequency": 1.0
+          },
+          {
+            "lower": 0.9,
+            "upper": 1.0,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          }
+        ],
+        "roc_points": [
+          {
+            "fpr": 0.0,
+            "tpr": 0.0
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.03333333333333333
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.2
+          },
+          {
+            "fpr": 0.03333333333333333,
+            "tpr": 0.2
+          },
+          {
+            "fpr": 0.03333333333333333,
+            "tpr": 0.3
+          },
+          {
+            "fpr": 0.06666666666666667,
+            "tpr": 0.3
+          },
+          {
+            "fpr": 0.06666666666666667,
+            "tpr": 0.43333333333333335
+          },
+          {
+            "fpr": 0.1,
+            "tpr": 0.43333333333333335
+          },
+          {
+            "fpr": 0.1,
+            "tpr": 0.4666666666666667
+          },
+          {
+            "fpr": 0.16666666666666666,
+            "tpr": 0.4666666666666667
+          },
+          {
+            "fpr": 0.16666666666666666,
+            "tpr": 0.5333333333333333
+          },
+          {
+            "fpr": 0.2,
+            "tpr": 0.5333333333333333
+          },
+          {
+            "fpr": 0.2,
+            "tpr": 0.6
+          },
+          {
+            "fpr": 0.26666666666666666,
+            "tpr": 0.6
+          },
+          {
+            "fpr": 0.26666666666666666,
+            "tpr": 0.6333333333333333
+          },
+          {
+            "fpr": 0.36666666666666664,
+            "tpr": 0.6333333333333333
+          },
+          {
+            "fpr": 0.36666666666666664,
+            "tpr": 0.6666666666666666
+          },
+          {
+            "fpr": 0.4666666666666667,
+            "tpr": 0.6666666666666666
+          },
+          {
+            "fpr": 0.4666666666666667,
+            "tpr": 0.7
+          },
+          {
+            "fpr": 0.6333333333333333,
+            "tpr": 0.7
+          },
+          {
+            "fpr": 0.6333333333333333,
+            "tpr": 0.7333333333333333
+          },
+          {
+            "fpr": 0.6666666666666666,
+            "tpr": 0.7333333333333333
+          },
+          {
+            "fpr": 0.6666666666666666,
+            "tpr": 0.8
+          },
+          {
+            "fpr": 0.7333333333333333,
+            "tpr": 0.8
+          },
+          {
+            "fpr": 0.7333333333333333,
+            "tpr": 0.8666666666666667
+          },
+          {
+            "fpr": 0.8333333333333334,
+            "tpr": 0.8666666666666667
+          },
+          {
+            "fpr": 0.8333333333333334,
+            "tpr": 0.9
+          },
+          {
+            "fpr": 0.9,
+            "tpr": 0.9
+          },
+          {
+            "fpr": 0.9,
+            "tpr": 0.9333333333333333
+          },
+          {
+            "fpr": 0.9333333333333333,
+            "tpr": 0.9333333333333333
+          },
+          {
+            "fpr": 0.9333333333333333,
+            "tpr": 0.9666666666666667
+          },
+          {
+            "fpr": 1.0,
+            "tpr": 0.9666666666666667
+          },
+          {
+            "fpr": 1.0,
+            "tpr": 1.0
+          }
+        ],
+        "mean_score_positive": 0.47203,
+        "mean_score_negative": 0.3422466666666667
+      },
+      "calibrated": {
+        "n": 60,
+        "n_positive": 30,
+        "n_negative": 30,
+        "auc": 0.6866666666666665,
+        "auc_ci95": [
+          0.5489186570566779,
+          0.815826629797218
+        ],
+        "eer": 0.3666666666666667,
+        "eer_threshold": 0.31632821416884,
+        "thresholds": [
+          {
+            "target_fpr": 0.01,
+            "tpr": null,
+            "threshold": null,
+            "measurable": false,
+            "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 1.00% figure would rest on fewer than one false positive"
+          },
+          {
+            "target_fpr": 0.001,
+            "tpr": null,
+            "threshold": null,
+            "measurable": false,
+            "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 0.10% figure would rest on fewer than one false positive"
+          }
+        ],
+        "ece": 0.14634243527843427,
+        "calibration_bins": [
+          {
+            "lower": 0.0,
+            "upper": 0.1,
+            "count": 4,
+            "mean_confidence": 0.06964777308219887,
+            "observed_frequency": 0.5
+          },
+          {
+            "lower": 0.1,
+            "upper": 0.2,
+            "count": 13,
+            "mean_confidence": 0.15359500052752317,
+            "observed_frequency": 0.38461538461538464
+          },
+          {
+            "lower": 0.2,
+            "upper": 0.30000000000000004,
+            "count": 11,
+            "mean_confidence": 0.2523128111155825,
+            "observed_frequency": 0.2727272727272727
+          },
+          {
+            "lower": 0.30000000000000004,
+            "upper": 0.4,
+            "count": 8,
+            "mean_confidence": 0.3359866191207841,
+            "observed_frequency": 0.25
+          },
+          {
+            "lower": 0.4,
+            "upper": 0.5,
+            "count": 7,
+            "mean_confidence": 0.4354769969918409,
+            "observed_frequency": 0.5714285714285714
+          },
+          {
+            "lower": 0.5,
+            "upper": 0.6000000000000001,
+            "count": 6,
+            "mean_confidence": 0.5611628384165096,
+            "observed_frequency": 0.8333333333333334
+          },
+          {
+            "lower": 0.6000000000000001,
+            "upper": 0.7000000000000001,
+            "count": 3,
+            "mean_confidence": 0.6378052385894372,
+            "observed_frequency": 0.6666666666666666
+          },
+          {
+            "lower": 0.7000000000000001,
+            "upper": 0.8,
+            "count": 5,
+            "mean_confidence": 0.7746052773293686,
+            "observed_frequency": 0.8
+          },
+          {
+            "lower": 0.8,
+            "upper": 0.9,
+            "count": 3,
+            "mean_confidence": 0.8849405676483708,
+            "observed_frequency": 1.0
+          },
+          {
+            "lower": 0.9,
+            "upper": 1.0,
+            "count": 0,
+            "mean_confidence": 0.0,
+            "observed_frequency": 0.0
+          }
+        ],
+        "roc_points": [
+          {
+            "fpr": 0.0,
+            "tpr": 0.0
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.03333333333333333
+          },
+          {
+            "fpr": 0.0,
+            "tpr": 0.2
+          },
+          {
+            "fpr": 0.03333333333333333,
+            "tpr": 0.2
+          },
+          {
+            "fpr": 0.03333333333333333,
+            "tpr": 0.3
+          },
+          {
+            "fpr": 0.06666666666666667,
+            "tpr": 0.3
+          },
+          {
+            "fpr": 0.06666666666666667,
+            "tpr": 0.43333333333333335
+          },
+          {
+            "fpr": 0.1,
+            "tpr": 0.43333333333333335
+          },
+          {
+            "fpr": 0.1,
+            "tpr": 0.4666666666666667
+          },
+          {
+            "fpr": 0.16666666666666666,
+            "tpr": 0.4666666666666667
+          },
+          {
+            "fpr": 0.16666666666666666,
+            "tpr": 0.5333333333333333
+          },
+          {
+            "fpr": 0.2,
+            "tpr": 0.5333333333333333
+          },
+          {
+            "fpr": 0.2,
+            "tpr": 0.6
+          },
+          {
+            "fpr": 0.26666666666666666,
+            "tpr": 0.6
+          },
+          {
+            "fpr": 0.26666666666666666,
+            "tpr": 0.6333333333333333
+          },
+          {
+            "fpr": 0.36666666666666664,
+            "tpr": 0.6333333333333333
+          },
+          {
+            "fpr": 0.36666666666666664,
+            "tpr": 0.6666666666666666
+          },
+          {
+            "fpr": 0.4666666666666667,
+            "tpr": 0.6666666666666666
+          },
+          {
+            "fpr": 0.4666666666666667,
+            "tpr": 0.7
+          },
+          {
+            "fpr": 0.6333333333333333,
+            "tpr": 0.7
+          },
+          {
+            "fpr": 0.6333333333333333,
+            "tpr": 0.7333333333333333
+          },
+          {
+            "fpr": 0.6666666666666666,
+            "tpr": 0.7333333333333333
+          },
+          {
+            "fpr": 0.6666666666666666,
+            "tpr": 0.8
+          },
+          {
+            "fpr": 0.7333333333333333,
+            "tpr": 0.8
+          },
+          {
+            "fpr": 0.7333333333333333,
+            "tpr": 0.8666666666666667
+          },
+          {
+            "fpr": 0.8333333333333334,
+            "tpr": 0.8666666666666667
+          },
+          {
+            "fpr": 0.8333333333333334,
+            "tpr": 0.9
+          },
+          {
+            "fpr": 0.9,
+            "tpr": 0.9
+          },
+          {
+            "fpr": 0.9,
+            "tpr": 0.9333333333333333
+          },
+          {
+            "fpr": 0.9333333333333333,
+            "tpr": 0.9333333333333333
+          },
+          {
+            "fpr": 0.9333333333333333,
+            "tpr": 0.9666666666666667
+          },
+          {
+            "fpr": 1.0,
+            "tpr": 0.9666666666666667
+          },
+          {
+            "fpr": 1.0,
+            "tpr": 1.0
+          }
+        ],
+        "mean_score_positive": 0.46481988670918295,
+        "mean_score_negative": 0.2883547729317001
+      }
+    }
+  },
+  "stream_comparison": {
+    "stream_a": "audio",
+    "stream_b": "audio_frequency",
+    "n": 60,
+    "auc_a": 0.9766666666666668,
+    "auc_b": 0.6866666666666665,
+    "auc_diff": 0.29000000000000026,
+    "auc_diff_ci95": [
+      0.16318698152337857,
+      0.4343891402714931
+    ],
+    "p_value_two_sided": 0.0,
+    "significant_at_0_05": true,
+    "note": "audio beats audio_frequency by 0.2900 AUC; significant at p=0.0000 (the 95% CI on the difference excludes zero)"
+  },
+  "fused_cross_dataset_metrics": {
+    "n": 60,
+    "n_positive": 30,
+    "n_negative": 30,
+    "auc": 0.9366666666666668,
+    "auc_ci95": [
+      0.8449660633484162,
+      0.9966576516069442
+    ],
+    "eer": 0.08333333333333331,
+    "eer_threshold": 0.18983541490828512,
+    "thresholds": [
+      {
+        "target_fpr": 0.01,
+        "tpr": null,
+        "threshold": null,
+        "measurable": false,
+        "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 1.00% figure would rest on fewer than one false positive"
+      },
+      {
+        "target_fpr": 0.001,
+        "tpr": null,
+        "threshold": null,
+        "measurable": false,
+        "note": "not measurable: 30 authentic samples resolve no finer than 3.33% FPR, so a 0.10% figure would rest on fewer than one false positive"
+      }
+    ],
+    "ece": 0.1131919531580342,
+    "calibration_bins": [
+      {
+        "lower": 0.0,
+        "upper": 0.1,
+        "count": 25,
+        "mean_confidence": 0.0640802488207406,
+        "observed_frequency": 0.04
+      },
+      {
+        "lower": 0.1,
+        "upper": 0.2,
+        "count": 7,
+        "mean_confidence": 0.1283381955897874,
+        "observed_frequency": 0.42857142857142855
+      },
+      {
+        "lower": 0.2,
+        "upper": 0.30000000000000004,
+        "count": 0,
+        "mean_confidence": 0.0,
+        "observed_frequency": 0.0
+      },
+      {
+        "lower": 0.30000000000000004,
+        "upper": 0.4,
+        "count": 1,
+        "mean_confidence": 0.37431926633230206,
+        "observed_frequency": 1.0
+      },
+      {
+        "lower": 0.4,
+        "upper": 0.5,
+        "count": 2,
+        "mean_confidence": 0.44818097094899656,
+        "observed_frequency": 1.0
+      },
+      {
+        "lower": 0.5,
+        "upper": 0.6000000000000001,
+        "count": 0,
+        "mean_confidence": 0.0,
+        "observed_frequency": 0.0
+      },
+      {
+        "lower": 0.6000000000000001,
+        "upper": 0.7000000000000001,
+        "count": 1,
+        "mean_confidence": 0.6238402267108345,
+        "observed_frequency": 0.0
+      },
+      {
+        "lower": 0.7000000000000001,
+        "upper": 0.8,
+        "count": 0,
+        "mean_confidence": 0.0,
+        "observed_frequency": 0.0
+      },
+      {
+        "lower": 0.8,
+        "upper": 0.9,
+        "count": 15,
+        "mean_confidence": 0.8571375226365828,
+        "observed_frequency": 0.9333333333333333
+      },
+      {
+        "lower": 0.9,
+        "upper": 1.0,
+        "count": 9,
+        "mean_confidence": 0.934246426759972,
+        "observed_frequency": 1.0
+      }
+    ],
+    "roc_points": [
+      {
+        "fpr": 0.0,
+        "tpr": 0.0
+      },
+      {
+        "fpr": 0.0,
+        "tpr": 0.03333333333333333
+      },
+      {
+        "fpr": 0.0,
+        "tpr": 0.36666666666666664
+      },
+      {
+        "fpr": 0.03333333333333333,
+        "tpr": 0.36666666666666664
+      },
+      {
+        "fpr": 0.03333333333333333,
+        "tpr": 0.7666666666666667
+      },
+      {
+        "fpr": 0.06666666666666667,
+        "tpr": 0.7666666666666667
+      },
+      {
+        "fpr": 0.06666666666666667,
+        "tpr": 0.9
+      },
+      {
+        "fpr": 0.13333333333333333,
+        "tpr": 0.9
+      },
+      {
+        "fpr": 0.13333333333333333,
+        "tpr": 0.9333333333333333
+      },
+      {
+        "fpr": 0.16666666666666666,
+        "tpr": 0.9333333333333333
+      },
+      {
+        "fpr": 0.16666666666666666,
+        "tpr": 0.9666666666666667
+      },
+      {
+        "fpr": 0.9333333333333333,
+        "tpr": 0.9666666666666667
+      },
+      {
+        "fpr": 0.9333333333333333,
+        "tpr": 1.0
+      },
+      {
+        "fpr": 1.0,
+        "tpr": 1.0
+      }
+    ],
+    "mean_score_positive": 0.7369448023359831,
+    "mean_score_negative": 0.11839438782990501
+  },
+  "temperature": {
+    "audio": 1.1,
+    "audio_frequency": 0.6800000000000002
+  },
+  "fusion_weights": [
+    {
+      "stream": "audio",
+      "auc": 0.97,
+      "weight": 0.7862,
+      "rationale": "AUC 0.970, i.e. 0.470 above chance, normalised across streams"
+    },
+    {
+      "stream": "audio_frequency",
+      "auc": 0.6278,
+      "weight": 0.2138,
+      "rationale": "AUC 0.628, i.e. 0.128 above chance, normalised across streams"
+    }
+  ],
+  "robustness_auc_by_snr_db": {
+    "25.0": {
+      "audio": 0.9672,
+      "audio_frequency": 0.8063
+    },
+    "15.0": {
+      "audio": 0.9639,
+      "audio_frequency": 0.8035
+    }
+  }
+}
