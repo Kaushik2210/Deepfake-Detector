@@ -124,6 +124,57 @@ def derive_fusion_weights(stream_aucs: dict[str, float]) -> list[StreamWeight]:
     return weights
 
 
+def bootstrap_weight_stability(
+    labels: np.ndarray,
+    stream_scores: dict[str, np.ndarray],
+    iterations: int = 500,
+    seed: int = 0,
+) -> dict[str, dict]:
+    """How much would the fusion weights change with a different validation draw?
+
+    Resamples the validation split with replacement `iterations` times -- all
+    streams together per replicate, since they were scored on the same clips
+    -- and rederives fusion weights from `derive_fusion_weights` exactly the
+    way the real harness does. The spread across replicates answers "is this
+    weight split a stable property of the streams, or a lucky draw from this
+    particular validation sample". This is a cheaper and more targeted
+    question than rerunning the whole harness at a different random seed:
+    a fresh seed also changes which clips get *scored* at all (different
+    decode/network failures, different corpus draw order), conflating that
+    noise with the one thing this function isolates -- sampling variance in
+    which already-scored validation clips a bootstrap draw happens to contain.
+    """
+    from .metrics import auc_score
+
+    rng = np.random.default_rng(seed)
+    names = list(stream_scores.keys())
+    n = len(labels)
+    weight_samples: dict[str, list[float]] = {name: [] for name in names}
+
+    for _ in range(iterations):
+        index = rng.integers(0, n, n)
+        sampled_labels = labels[index]
+        if sampled_labels.min() == sampled_labels.max():
+            continue
+        aucs = {name: auc_score(sampled_labels, stream_scores[name][index]) for name in names}
+        for w in derive_fusion_weights(aucs):
+            weight_samples[w.stream].append(w.weight)
+
+    result: dict[str, dict] = {}
+    for name in names:
+        values = weight_samples[name]
+        if not values:
+            result[name] = {"median": None, "p10": None, "p90": None, "n_replicates": 0}
+            continue
+        result[name] = {
+            "median": float(np.median(values)),
+            "p10": float(np.percentile(values, 10)),
+            "p90": float(np.percentile(values, 90)),
+            "n_replicates": len(values),
+        }
+    return result
+
+
 def write_calibration(
     path: Path,
     temperatures: dict[str, float],

@@ -80,6 +80,76 @@ class TestAuc:
         assert (small_hi - small_lo) > (big_hi - big_lo)
 
 
+class TestRocPoints:
+    def test_endpoints_are_preserved_under_thinning(self, separable) -> None:
+        labels, scores = separable
+        fpr, tpr, _ = metrics.roc_curve(labels, scores)
+        points = metrics.downsampled_roc_points(fpr, tpr, max_points=10)
+
+        assert points[0].fpr == pytest.approx(float(fpr[0]))
+        assert points[-1].fpr == pytest.approx(float(fpr[-1]))
+        assert len(points) <= 10
+
+    def test_small_curves_are_not_thinned(self) -> None:
+        fpr = np.array([0.0, 0.5, 1.0])
+        tpr = np.array([0.0, 0.8, 1.0])
+        points = metrics.downsampled_roc_points(fpr, tpr, max_points=60)
+        assert len(points) == 3
+
+    def test_included_in_evaluate_output(self, separable) -> None:
+        labels, scores = separable
+        result = metrics.evaluate(labels, scores)
+        assert len(result.roc_points) > 0
+        assert all(0.0 <= p.fpr <= 1.0 and 0.0 <= p.tpr <= 1.0 for p in result.roc_points)
+
+
+class TestStreamComparison:
+    def test_identical_streams_are_not_significant(self, separable) -> None:
+        labels, scores = separable
+        result = metrics.compare_streams_auc("a", "b", labels, scores, scores, iterations=200)
+
+        assert result.auc_diff == pytest.approx(0.0, abs=1e-9)
+        assert result.significant_at_0_05 is False
+
+    def test_a_clearly_better_stream_is_significant(self) -> None:
+        rng = np.random.default_rng(6)
+        labels = np.array([0] * 400 + [1] * 400)
+        strong = np.concatenate([rng.beta(1.5, 6, 400), rng.beta(6, 1.5, 400)])
+        noise = rng.uniform(0, 1, 800)
+
+        result = metrics.compare_streams_auc(
+            "strong", "noise", labels, strong, noise, iterations=500
+        )
+
+        assert result.auc_diff > 0
+        assert result.significant_at_0_05 is True
+        assert result.p_value_two_sided < 0.05
+
+    def test_a_near_tied_small_sample_is_not_necessarily_significant(self) -> None:
+        """The exact scenario this test exists for: two streams with a small
+        measured AUC gap on a modest sample should not be over-claimed as a
+        real difference just because one number is higher than the other."""
+        rng = np.random.default_rng(7)
+        labels = np.array([0] * 25 + [1] * 25)
+        a = np.concatenate([rng.beta(2, 3, 25), rng.beta(3, 2, 25)])
+        b = np.concatenate([rng.beta(2.1, 3, 25), rng.beta(2.9, 2, 25)])
+
+        result = metrics.compare_streams_auc("a", "b", labels, a, b, iterations=500)
+        # Not asserting the direction, only that the test correctly declines
+        # to call a small, noisy gap significant.
+        assert result.significant_at_0_05 is False
+
+    def test_ci_direction_matches_observed_difference(self) -> None:
+        rng = np.random.default_rng(8)
+        labels = np.array([0] * 300 + [1] * 300)
+        strong = np.concatenate([rng.beta(1.5, 6, 300), rng.beta(6, 1.5, 300)])
+        weak = np.concatenate([rng.beta(2.5, 4, 300), rng.beta(4, 2.5, 300)])
+
+        result = metrics.compare_streams_auc("strong", "weak", labels, strong, weak, iterations=500)
+        lo, hi = result.auc_diff_ci95
+        assert lo <= result.auc_diff <= hi
+
+
 class TestCalibrationError:
     def test_perfectly_calibrated_scores_have_near_zero_ece(self) -> None:
         rng = np.random.default_rng(2)
@@ -189,3 +259,48 @@ class TestFusionWeights:
         weights = calibrate.derive_fusion_weights({"a": 0.5, "b": 0.48})
         assert all(w.weight == 0.0 for w in weights)
         assert all("cannot be weighted" in w.rationale or "chance" in w.rationale for w in weights)
+
+
+class TestWeightStability:
+    def test_a_clearly_stronger_stream_gets_a_stable_high_weight(self) -> None:
+        rng = np.random.default_rng(9)
+        labels = np.array([0] * 200 + [1] * 200)
+        strong = np.concatenate([rng.beta(1.5, 6, 200), rng.beta(6, 1.5, 200)])
+        weak = np.concatenate([rng.beta(2.3, 3, 200), rng.beta(3, 2.3, 200)])
+
+        result = calibrate.bootstrap_weight_stability(
+            labels, {"strong": strong, "weak": weak}, iterations=300, seed=0
+        )
+
+        assert result["strong"]["median"] > result["weak"]["median"]
+        # A clear winner should stay a clear winner across almost every resample.
+        assert result["strong"]["p10"] > result["weak"]["p90"]
+
+    def test_near_tied_streams_produce_overlapping_intervals(self) -> None:
+        """The exact scenario the fusion-weight fix produced: two streams
+        close enough in AUC that which one gets slightly more weight should
+        not be presented as a settled question."""
+        rng = np.random.default_rng(10)
+        labels = np.array([0] * 100 + [1] * 100)
+        a = np.concatenate([rng.beta(2, 3, 100), rng.beta(3, 2, 100)])
+        b = np.concatenate([rng.beta(2.05, 3, 100), rng.beta(2.95, 2, 100)])
+
+        result = calibrate.bootstrap_weight_stability(
+            labels, {"a": a, "b": b}, iterations=300, seed=0
+        )
+
+        # Overlap means the p10-p90 spans intersect -- neither stream's
+        # interval sits entirely above the other's.
+        assert not (result["a"]["p10"] > result["b"]["p90"])
+        assert not (result["b"]["p10"] > result["a"]["p90"])
+
+    def test_weights_still_sum_to_one_per_replicate_on_average(self) -> None:
+        rng = np.random.default_rng(11)
+        labels = np.array([0] * 150 + [1] * 150)
+        a = np.concatenate([rng.beta(2, 4, 150), rng.beta(4, 2, 150)])
+        b = np.concatenate([rng.beta(2.5, 4, 150), rng.beta(4, 2.5, 150)])
+
+        result = calibrate.bootstrap_weight_stability(
+            labels, {"a": a, "b": b}, iterations=300, seed=0
+        )
+        assert result["a"]["median"] + result["b"]["median"] == pytest.approx(1.0, abs=0.05)

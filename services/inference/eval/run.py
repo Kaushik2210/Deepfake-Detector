@@ -213,6 +213,29 @@ def _arrays(run: DatasetRun, stream: str) -> tuple[np.ndarray, np.ndarray]:
     return np.array(labels), np.array(scores)
 
 
+def _paired_arrays(
+    run: DatasetRun, stream_a: str, stream_b: str
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Labels and both streams' scores, restricted to samples where both scored.
+
+    A significance test comparing two streams needs them measured on the exact
+    same clips in the same order -- spatial has no-face gaps frequency does
+    not, so this is not simply the two independent _arrays() calls.
+    """
+    labels: list[int] = []
+    a: list[float] = []
+    b: list[float] = []
+    for sample in run.samples:
+        va = sample.spatial if stream_a == "spatial" else sample.frequency
+        vb = sample.spatial if stream_b == "spatial" else sample.frequency
+        if va is None or vb is None:
+            continue
+        labels.append(sample.label)
+        a.append(va)
+        b.append(vb)
+    return np.array(labels), np.array(a), np.array(b)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="VeriFrame evaluation harness")
     parser.add_argument("--limit", type=int, default=2000, help="samples per dataset")
@@ -305,6 +328,19 @@ def main() -> int:
 
     weights = calibrate.derive_fusion_weights(stream_aucs)
 
+    # --- is the weight split a stable property of the streams, or a lucky
+    # draw from this particular validation sample? ---
+    weight_stability: dict | None = None
+    paired_val_labels, paired_val_a, paired_val_b = _paired_arrays(
+        validation_run, "spatial", "frequency"
+    )
+    if len(paired_val_labels) >= 20 and paired_val_labels.min() != paired_val_labels.max():
+        weight_stability = calibrate.bootstrap_weight_stability(
+            paired_val_labels,
+            {"spatial": paired_val_a, "frequency": paired_val_b},
+            seed=args.seed,
+        )
+
     # --- temperature fitted on the calibration split only ---
     temperatures: dict[str, float] = {}
     for stream in stream_aucs:
@@ -328,6 +364,15 @@ def main() -> int:
             "raw": raw_result.to_dict(),
             "calibrated": calibrated_result.to_dict(),
         }
+
+    # --- is the AUC gap between streams on the final split real, or noise? ---
+    stream_comparison: dict | None = None
+    paired_labels, paired_a, paired_b = _paired_arrays(final_run, "spatial", "frequency")
+    if len(paired_labels) >= 20 and paired_labels.min() != paired_labels.max():
+        stream_comparison = metrics.compare_streams_auc(
+            "spatial", "frequency", paired_labels, paired_a, paired_b
+        ).to_dict()
+        print(f"  {stream_comparison['note']}")
 
     # --- robustness sweep on the reporting split ---
     robustness: dict[str, dict] = {}
@@ -388,7 +433,9 @@ def main() -> int:
         },
         "in_dataset_metrics": stream_metrics,
         "weight_validation_metrics": validation_metrics,
+        "weight_stability": weight_stability,
         "cross_dataset_metrics": reporting_metrics,
+        "stream_comparison": stream_comparison,
         # Stream D reads embedded provenance, which these corpora do not carry.
         # Recorded explicitly so its absence from the metrics tables reads as
         # "could not be measured here" rather than "forgotten".

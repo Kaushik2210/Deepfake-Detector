@@ -39,6 +39,12 @@ class CalibrationBin:
 
 
 @dataclass
+class RocPoint:
+    fpr: float
+    tpr: float
+
+
+@dataclass
 class MetricSet:
     n: int
     n_positive: int
@@ -50,6 +56,7 @@ class MetricSet:
     thresholds: list[ThresholdMetric] = field(default_factory=list)
     ece: float = 0.0
     calibration_bins: list[CalibrationBin] = field(default_factory=list)
+    roc_points: list[RocPoint] = field(default_factory=list)
     mean_score_positive: float = 0.0
     mean_score_negative: float = 0.0
 
@@ -100,6 +107,25 @@ def bootstrap_auc_ci(
         float(np.percentile(values, 2.5)),
         float(np.percentile(values, 97.5)),
     )
+
+
+def downsampled_roc_points(
+    fpr: np.ndarray, tpr: np.ndarray, max_points: int = 60
+) -> list[RocPoint]:
+    """Thin a full ROC curve down to a bounded set of points for plotting.
+
+    sklearn's roc_curve returns one point per distinct score, which for a few
+    hundred samples is already small but for thousands would bloat the JSON
+    report for no visual benefit -- a plotted curve at 60 points looks
+    identical to one at 2,000. Endpoints are always kept so the curve still
+    visibly starts at (0,0) and ends at (1,1) after thinning.
+    """
+    n = len(fpr)
+    if n <= max_points:
+        indices = np.arange(n)
+    else:
+        indices = np.unique(np.linspace(0, n - 1, max_points).astype(int))
+    return [RocPoint(float(fpr[i]), float(tpr[i])) for i in indices]
 
 
 def equal_error_rate(labels: np.ndarray, scores: np.ndarray) -> tuple[float, float]:
@@ -198,6 +224,7 @@ def evaluate(
 
     ece, bins = expected_calibration_error(labels, scores)
     eer, eer_threshold = equal_error_rate(labels, scores)
+    fpr, tpr, _ = roc_curve(labels, scores)
 
     return MetricSet(
         n=len(labels),
@@ -210,6 +237,110 @@ def evaluate(
         thresholds=[tpr_at_fpr(labels, scores, fpr) for fpr in target_fprs],
         ece=ece,
         calibration_bins=bins,
+        roc_points=downsampled_roc_points(fpr, tpr),
         mean_score_positive=float(scores[labels == 1].mean()) if (labels == 1).any() else 0.0,
         mean_score_negative=float(scores[labels == 0].mean()) if (labels == 0).any() else 0.0,
+    )
+
+
+@dataclass
+class StreamComparison:
+    stream_a: str
+    stream_b: str
+    n: int
+    auc_a: float
+    auc_b: float
+    auc_diff: float
+    auc_diff_ci95: tuple[float, float]
+    p_value_two_sided: float
+    significant_at_0_05: bool
+    note: str
+
+    def to_dict(self) -> dict:
+        payload = asdict(self)
+        payload["auc_diff_ci95"] = list(self.auc_diff_ci95)
+        return payload
+
+
+def compare_streams_auc(
+    stream_a: str,
+    stream_b: str,
+    labels: np.ndarray,
+    scores_a: np.ndarray,
+    scores_b: np.ndarray,
+    iterations: int = 2000,
+    seed: int = 0,
+) -> StreamComparison:
+    """Is one stream's AUC advantage over another real, or sampling noise?
+
+    A paired bootstrap: the same resampled indices are applied to both
+    streams' scores on each iteration, since both were measured on the exact
+    same clips -- that pairing is what makes this a legitimate significance
+    test rather than two independent confidence intervals eyeballed for
+    overlap (which under- and over-states significance in different regimes).
+    The p-value is the two-sided fraction of bootstrap replicates on the
+    other side of zero from the observed difference, doubled -- the
+    percentile-bootstrap analogue of a two-sided test.
+    """
+    labels = np.asarray(labels).astype(int)
+    scores_a = np.asarray(scores_a, dtype=float)
+    scores_b = np.asarray(scores_b, dtype=float)
+
+    observed_diff = auc_score(labels, scores_a) - auc_score(labels, scores_b)
+
+    rng = np.random.default_rng(seed)
+    n = len(labels)
+    diffs: list[float] = []
+
+    for _ in range(iterations):
+        index = rng.integers(0, n, n)
+        sampled_labels = labels[index]
+        if sampled_labels.min() == sampled_labels.max():
+            continue
+        diffs.append(
+            auc_score(sampled_labels, scores_a[index])
+            - auc_score(sampled_labels, scores_b[index])
+        )
+
+    if not diffs:
+        return StreamComparison(
+            stream_a, stream_b, n, float("nan"), float("nan"), observed_diff,
+            (float("nan"), float("nan")), float("nan"), False,
+            "bootstrap could not resample both classes; too few samples to test",
+        )
+
+    diffs_arr = np.array(diffs)
+    ci = (float(np.percentile(diffs_arr, 2.5)), float(np.percentile(diffs_arr, 97.5)))
+
+    # Fraction of the bootstrap distribution that crosses zero from the side
+    # the observed difference sits on -- doubled for a two-sided p-value,
+    # capped at 1.0 since doubling a fraction already above 0.5 is meaningless.
+    side_fraction = (
+        float(np.mean(diffs_arr <= 0)) if observed_diff > 0 else float(np.mean(diffs_arr >= 0))
+    )
+    p_value = min(1.0, 2.0 * side_fraction)
+    significant = p_value < 0.05
+
+    note = (
+        f"{stream_a} {'beats' if observed_diff > 0 else 'trails'} {stream_b} by "
+        f"{abs(observed_diff):.4f} AUC; "
+        + (
+            f"significant at p={p_value:.4f} (the 95% CI on the difference excludes zero)"
+            if significant
+            else f"not significant at p={p_value:.4f} (the 95% CI on the difference includes zero) "
+            "-- consistent with the two streams performing about the same"
+        )
+    )
+
+    return StreamComparison(
+        stream_a=stream_a,
+        stream_b=stream_b,
+        n=n,
+        auc_a=auc_score(labels, scores_a),
+        auc_b=auc_score(labels, scores_b),
+        auc_diff=observed_diff,
+        auc_diff_ci95=ci,
+        p_value_two_sided=p_value,
+        significant_at_0_05=significant,
+        note=note,
     )

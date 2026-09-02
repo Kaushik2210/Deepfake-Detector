@@ -188,6 +188,30 @@ def _arrays(run: AudioDatasetRun, stream: str) -> tuple[np.ndarray, np.ndarray]:
     return np.array(labels), np.array(scores)
 
 
+def _paired_arrays(
+    run: AudioDatasetRun, stream_a: str, stream_b: str
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Labels and both streams' scores, restricted to samples where both scored.
+
+    A significance test comparing two streams needs them measured on the exact
+    same clips in the same order -- audio_frequency has gaps (unmeasurable
+    periodicity) audio does not, so this is not simply two independent
+    _arrays() calls.
+    """
+    labels: list[int] = []
+    a: list[float] = []
+    b: list[float] = []
+    for sample in run.samples:
+        va = sample.scores.get(stream_a)
+        vb = sample.scores.get(stream_b)
+        if va is None or vb is None:
+            continue
+        labels.append(sample.label)
+        a.append(va)
+        b.append(vb)
+    return np.array(labels), np.array(a), np.array(b)
+
+
 def _fused_scores(
     run: AudioDatasetRun, weights: dict[str, float]
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -303,6 +327,19 @@ def main() -> int:
     weights = calibrate.derive_fusion_weights(stream_aucs)
     weight_by_stream = {w.stream: w.weight for w in weights}
 
+    # --- is the weight split a stable property of the streams, or a lucky
+    # draw from this particular validation sample? ---
+    weight_stability: dict | None = None
+    paired_val_labels, paired_val_audio, paired_val_freq = _paired_arrays(
+        validation_run, "audio", "audio_frequency"
+    )
+    if len(paired_val_labels) >= 20 and paired_val_labels.min() != paired_val_labels.max():
+        weight_stability = calibrate.bootstrap_weight_stability(
+            paired_val_labels,
+            {"audio": paired_val_audio, "audio_frequency": paired_val_freq},
+            seed=args.seed,
+        )
+
     temperatures: dict[str, float] = {}
     for stream, (labels, scores) in calib_arrays.items():
         if len(labels) < 20 or labels.min() == labels.max():
@@ -327,6 +364,15 @@ def main() -> int:
             "raw": raw_result.to_dict(),
             "calibrated": calibrated_result.to_dict(),
         }
+
+    # --- is the AUC gap between streams on the final split real, or noise? ---
+    stream_comparison: dict | None = None
+    paired_labels, paired_audio, paired_freq = _paired_arrays(final_run, "audio", "audio_frequency")
+    if len(paired_labels) >= 20 and paired_labels.min() != paired_labels.max():
+        stream_comparison = metrics.compare_streams_auc(
+            "audio", "audio_frequency", paired_labels, paired_audio, paired_freq
+        ).to_dict()
+        print(f"  {stream_comparison['note']}")
 
     # The actual question this second stream exists to answer: does fusing it
     # with AASIST improve on AASIST alone, on the final held-out split -- the one
@@ -403,7 +449,9 @@ def main() -> int:
         },
         "in_dataset_metrics": in_dataset_metrics,
         "weight_validation_metrics": validation_metrics,
+        "weight_stability": weight_stability,
         "cross_dataset_metrics": cross_dataset_metrics,
+        "stream_comparison": stream_comparison,
         "fused_cross_dataset_metrics": fused_metrics,
         "temperature": temperatures,
         "fusion_weights": [

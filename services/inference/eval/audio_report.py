@@ -215,6 +215,22 @@ def write_audio_report(path: Path, payload: dict) -> None:
             "periodicity (silence, heavy noise, non-speech audio)._\n"
         )
 
+    comparison = payload.get("stream_comparison")
+    if comparison:
+        add("## Is the gap between streams real?")
+        add("")
+        add(
+            f"A paired bootstrap significance test on the final held-out split: "
+            f"{comparison['stream_a']} scores {comparison['auc_a']:.4f} AUC, "
+            f"{comparison['stream_b']} scores {comparison['auc_b']:.4f}, a difference of "
+            f"{comparison['auc_diff']:.4f} with a 95% CI of "
+            f"[{comparison['auc_diff_ci95'][0]:.4f}, {comparison['auc_diff_ci95'][1]:.4f}] "
+            f"(p={comparison['p_value_two_sided']:.4f})."
+        )
+        add("")
+        add(comparison["note"])
+        add("")
+
     if validation:
         add("## Weight-selection validation")
         add("")
@@ -249,6 +265,28 @@ def write_audio_report(path: Path, payload: dict) -> None:
             f"{entry['rationale']} |"
         )
     add("")
+
+    stability = payload.get("weight_stability")
+    if stability:
+        add("### Is that weight split stable, or a lucky draw?")
+        add("")
+        add(
+            "A bootstrap over the weight-validation split itself (500 resamples, "
+            "weights rederived from the same procedure each time): the median weight "
+            "and the middle 80% of resamples (p10-p90) for each stream. A wide or "
+            "overlapping range means the exact split above should not be read as a "
+            "settled number — a different, equally valid draw of validation clips "
+            "could have landed noticeably differently."
+        )
+        add("")
+        add("| Stream | Median weight | p10-p90 |")
+        add("|---|---|---|")
+        for name, s in stability.items():
+            if s["median"] is None:
+                add(f"| {name} | — | not enough resamples contained both classes |")
+            else:
+                add(f"| {name} | {s['median']:.4f} | {s['p10']:.4f}-{s['p90']:.4f} |")
+        add("")
 
     add("## Calibration parameters")
     add("")
