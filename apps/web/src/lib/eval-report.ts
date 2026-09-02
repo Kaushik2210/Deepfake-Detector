@@ -24,6 +24,19 @@ export interface ThresholdMetric {
   note: string;
 }
 
+export interface RocPoint {
+  fpr: number;
+  tpr: number;
+}
+
+export interface CalibrationBin {
+  lower: number;
+  upper: number;
+  count: number;
+  mean_confidence: number;
+  observed_frequency: number;
+}
+
 export interface StreamMetrics {
   n: number;
   n_positive: number;
@@ -34,8 +47,30 @@ export interface StreamMetrics {
   eer_threshold: number;
   thresholds: ThresholdMetric[];
   ece: number;
+  calibration_bins: CalibrationBin[];
+  roc_points: RocPoint[];
   mean_score_positive: number;
   mean_score_negative: number;
+}
+
+export interface WeightStability {
+  median: number | null;
+  p10: number | null;
+  p90: number | null;
+  n_replicates: number;
+}
+
+export interface StreamComparison {
+  stream_a: string;
+  stream_b: string;
+  n: number;
+  auc_a: number;
+  auc_b: number;
+  auc_diff: number;
+  auc_diff_ci95: [number, number];
+  p_value_two_sided: number;
+  significant_at_0_05: boolean;
+  note: string;
 }
 
 interface DatasetMeta {
@@ -70,7 +105,9 @@ export interface EvalReport {
   >;
   in_dataset_metrics: Record<string, StreamMetrics>;
   weight_validation_metrics?: Record<string, StreamMetrics>;
+  weight_stability?: Record<string, WeightStability> | null;
   cross_dataset_metrics: Record<string, { raw: StreamMetrics; calibrated: StreamMetrics }>;
+  stream_comparison?: StreamComparison | null;
   temperature: Record<string, number>;
   fusion_weights: { stream: string; auc: number; weight: number; rationale: string }[];
   robustness_auc_by_jpeg_quality: Record<string, Record<string, number>>;
@@ -96,7 +133,9 @@ export interface AudioEvalReport {
   >;
   in_dataset_metrics: Record<string, StreamMetrics>;
   weight_validation_metrics?: Record<string, StreamMetrics>;
+  weight_stability?: Record<string, WeightStability> | null;
   cross_dataset_metrics: Record<string, { raw: StreamMetrics; calibrated: StreamMetrics }>;
+  stream_comparison?: StreamComparison | null;
   fused_cross_dataset_metrics: StreamMetrics | null;
   temperature: Record<string, number>;
   fusion_weights: { stream: string; auc: number; weight: number; rationale: string }[];

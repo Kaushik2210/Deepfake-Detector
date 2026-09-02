@@ -1,5 +1,12 @@
-import { latestAudioEvalReport, latestEvalReport, type StreamMetrics } from "@/lib/eval-report";
+import {
+  latestAudioEvalReport,
+  latestEvalReport,
+  type StreamComparison,
+  type StreamMetrics,
+  type WeightStability,
+} from "@/lib/eval-report";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -9,6 +16,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { RocCurveChart, type RocSeries } from "@/components/charts/RocCurveChart";
+import { ReliabilityDiagram } from "@/components/charts/ReliabilityDiagram";
+
+const CHART_COLORS: RocSeries["colorVar"][] = ["--primary", "--chart-3", "--chart-4", "--chart-5"];
 
 export const metadata = {
   title: "Model accuracy — VeriFrame",
@@ -75,6 +86,156 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+function StreamFigures({ cross }: { cross: Record<string, { raw: StreamMetrics }> }) {
+  const entries = Object.entries(cross);
+  const series: RocSeries[] = entries
+    .map(([name, entry], i) => ({
+      label: name.replace(/_/g, " "),
+      auc: entry.raw.auc,
+      points: entry.raw.roc_points ?? [],
+      colorVar: CHART_COLORS[i % CHART_COLORS.length],
+    }))
+    .filter((s) => s.points.length > 0);
+
+  const withBins = entries.filter(([, entry]) => (entry.raw.calibration_bins ?? []).length > 0);
+
+  if (series.length === 0 && withBins.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          ROC curves and calibration
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Measured on the final held-out split. The dashed diagonal in the left figure is
+          what a coin flip would draw; in the reliability diagrams it is perfect
+          calibration — a claimed confidence matching how often the model was actually
+          right.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {series.length > 0 && (
+          <div className="flex justify-center">
+            <RocCurveChart series={series} />
+          </div>
+        )}
+        {withBins.length > 0 && (
+          <div className="grid gap-6 sm:grid-cols-2">
+            {withBins.map(([name, entry]) => (
+              <div key={name}>
+                <p className="mb-2 text-sm font-medium capitalize">{name.replace(/_/g, " ")}</p>
+                <ReliabilityDiagram bins={entry.raw.calibration_bins} ece={entry.raw.ece} />
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FusionWeightsCard({
+  weights,
+  stability,
+  helpText,
+}: {
+  weights: { stream: string; auc: number; weight: number; rationale: string }[];
+  stability?: Record<string, WeightStability> | null;
+  helpText: string;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Fusion weights
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">{helpText}</p>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Stream</TableHead>
+              <TableHead>Validation AUC</TableHead>
+              <TableHead>Weight</TableHead>
+              {stability && <TableHead>Stability (p10–p90)</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {weights.map((w) => {
+              const s = stability?.[w.stream];
+              return (
+                <TableRow key={w.stream}>
+                  <TableCell className="capitalize">{w.stream.replace(/_/g, " ")}</TableCell>
+                  <TableCell className="font-mono">{w.auc.toFixed(4)}</TableCell>
+                  <TableCell className="font-mono">{w.weight.toFixed(4)}</TableCell>
+                  {stability && (
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {s?.median != null ? `${s.p10!.toFixed(3)} – ${s.p90!.toFixed(3)}` : "—"}
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+        {stability && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Stability column: a bootstrap over the weight-validation split (500 resamples,
+            weights rederived from the same procedure each time) — the middle 80% of
+            weights this stream received across resamples. An overlapping range between
+            streams means the exact split above should not be read as a settled number.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function StreamComparisonCard({ comparison }: { comparison: StreamComparison }) {
+  const [lo, hi] = comparison.auc_diff_ci95;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Is the gap between streams real?
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          A paired bootstrap significance test on the final held-out split — both streams
+          scored on the exact same clips, resampled together so the test accounts for how
+          their errors correlate, rather than comparing two independent confidence
+          intervals by eye.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <Metric
+          label={`${comparison.stream_a.replace(/_/g, " ")} AUC`}
+          value={comparison.auc_a.toFixed(4)}
+        />
+        <Metric
+          label={`${comparison.stream_b.replace(/_/g, " ")} AUC`}
+          value={comparison.auc_b.toFixed(4)}
+        />
+        <Metric
+          label="Difference"
+          value={`${comparison.auc_diff >= 0 ? "+" : ""}${comparison.auc_diff.toFixed(4)}`}
+          note={`95% CI ${lo.toFixed(4)} – ${hi.toFixed(4)} (bootstrap, n=${comparison.n})`}
+        />
+        <div className="flex items-center justify-between gap-4 border-b py-2 last:border-0">
+          <span className="text-sm text-muted-foreground">p-value</span>
+          <Badge variant={comparison.significant_at_0_05 ? "default" : "secondary"}>
+            {comparison.p_value_two_sided.toFixed(4)} —{" "}
+            {comparison.significant_at_0_05 ? "significant" : "not significant"}
+          </Badge>
+        </div>
+        <p className="mt-3 text-sm text-muted-foreground">{comparison.note}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function AccuracyPage() {
   const [report, audioReport] = await Promise.all([latestEvalReport(), latestAudioEvalReport()]);
 
@@ -120,7 +281,7 @@ function Separator() {
 }
 
 function ImageAccuracySection({ report }: { report: NonNullable<Awaited<ReturnType<typeof latestEvalReport>>> }) {
-  const { provenance, datasets, coverage, cross_dataset_metrics: cross } = report;
+  const { provenance, datasets, coverage, cross_dataset_metrics: cross, stream_comparison } = report;
   const calibrationSet = datasets[provenance.calibration_dataset];
   const reportingSet = datasets[provenance.reporting_dataset];
   const robustness = report.robustness_auc_by_jpeg_quality ?? {};
@@ -188,40 +349,15 @@ function ImageAccuracySection({ report }: { report: NonNullable<Awaited<ReturnTy
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Fusion weights
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Derived from each stream&rsquo;s measured performance on a held-out
-            weight-validation split of the reporting corpus — not the calibration
-            corpus&rsquo;s in-distribution performance, which does not predict
-            cross-dataset generalisation (see <span className="font-mono">DECISIONS.md</span>).
-            Never chosen by hand. A stream that performs at chance receives zero weight.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Stream</TableHead>
-                <TableHead>Validation AUC</TableHead>
-                <TableHead>Weight</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {report.fusion_weights.map((w) => (
-                <TableRow key={w.stream}>
-                  <TableCell className="capitalize">{w.stream}</TableCell>
-                  <TableCell className="font-mono">{w.auc.toFixed(4)}</TableCell>
-                  <TableCell className="font-mono">{w.weight.toFixed(4)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <StreamFigures cross={cross} />
+
+      {stream_comparison && <StreamComparisonCard comparison={stream_comparison} />}
+
+      <FusionWeightsCard
+        weights={report.fusion_weights}
+        stability={report.weight_stability}
+        helpText="Derived from each stream's measured performance on a held-out weight-validation split of the reporting corpus — not the calibration corpus's in-distribution performance, which does not predict cross-dataset generalisation (see DECISIONS.md). Never chosen by hand. A stream that performs at chance receives zero weight."
+      />
 
       {robustnessStreams.length > 0 && (
         <Card>
@@ -310,7 +446,14 @@ function ImageAccuracySection({ report }: { report: NonNullable<Awaited<ReturnTy
 }
 
 function AudioAccuracySection({ report }: { report: NonNullable<Awaited<ReturnType<typeof latestAudioEvalReport>>> }) {
-  const { provenance, datasets, coverage, cross_dataset_metrics: cross, fused_cross_dataset_metrics: fused } = report;
+  const {
+    provenance,
+    datasets,
+    coverage,
+    cross_dataset_metrics: cross,
+    fused_cross_dataset_metrics: fused,
+    stream_comparison,
+  } = report;
   const calibrationSet = datasets[provenance.calibration_dataset];
   const reportingSet = datasets[provenance.reporting_dataset];
   const aasistOnly = cross.audio?.raw;
@@ -414,40 +557,15 @@ function AudioAccuracySection({ report }: { report: NonNullable<Awaited<ReturnTy
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Fusion weights
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Derived from each stream&rsquo;s measured performance on a held-out
-            weight-validation split of the reporting corpus — not the calibration
-            corpus&rsquo;s in-distribution performance, which does not predict
-            cross-dataset generalisation (see <span className="font-mono">DECISIONS.md</span>).
-            Never chosen by hand.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Stream</TableHead>
-                <TableHead>Validation AUC</TableHead>
-                <TableHead>Weight</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {report.fusion_weights.map((w) => (
-                <TableRow key={w.stream}>
-                  <TableCell className="capitalize">{w.stream.replace(/_/g, " ")}</TableCell>
-                  <TableCell className="font-mono">{w.auc.toFixed(4)}</TableCell>
-                  <TableCell className="font-mono">{w.weight.toFixed(4)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <StreamFigures cross={cross} />
+
+      {stream_comparison && <StreamComparisonCard comparison={stream_comparison} />}
+
+      <FusionWeightsCard
+        weights={report.fusion_weights}
+        stability={report.weight_stability}
+        helpText="Derived from each stream's measured performance on a held-out weight-validation split of the reporting corpus — not the calibration corpus's in-distribution performance, which does not predict cross-dataset generalisation (see DECISIONS.md). Never chosen by hand."
+      />
 
       <Card>
         <CardHeader>
