@@ -18,6 +18,8 @@ Outputs `reports/<date>.md` / `reports/<date>.json` (images) and `reports/audio-
 
 **Per-stream before fused.** Each stream is scored independently so its contribution is measured, not assumed. Fusion weights are derived from those measurements: proportional to how far a stream's AUC sits above chance, normalised, with zero for anything at or below chance. A stream is allowed to measure as useless.
 
+**Is the gap significant, and is the weight split stable?** Two bootstrap checks run alongside every pass: `metrics.compare_streams_auc` (a paired test on the final split — is one stream's AUC edge over the other real, or noise?) and `calibrate.bootstrap_weight_stability` (500 resamples of the weight-validation split — is the fusion-weight split a settled property of the streams, or a lucky draw?). See the section below for what they found the first time they ran for real.
+
 **Robustness sweep.** The reporting corpus is re-encoded at several JPEG qualities and re-scored (audio: white Gaussian noise added at several SNR levels instead, since audio has no direct equivalent of JPEG recompression, but background noise plays the same "this is what real deployment conditions actually look like" role). Most media arrives degraded somehow, so that is part of the headline rather than an appendix.
 
 ## What the harness refuses to do
@@ -76,6 +78,14 @@ Re-running both harnesses with this fix confirms it works, in both media kinds:
 See `DECISIONS.md`, 2026-08-28, for the full numbers on both.
 
 A literal third, independent corpus — fit calibration on one, select the fitting procedure on a second, report only on a third untouched by either — remains the methodologically purest version of this fix and is still not implemented; it is blocked on finding a second commercially-licensed reporting-quality corpus per media kind (see `LICENSES.md`'s rejected-candidates lists, which is most of why this project has exactly two usable corpora per media kind rather than three).
+
+## Added: significance testing and a weight-stability bootstrap
+
+Neither the validation-split fix nor the raw numbers it produces say whether a measured AUC gap between two streams is real or sampling noise, or whether a given fusion-weight split is a stable property of the streams or a lucky draw from one particular validation sample. `eval/metrics.py::compare_streams_auc` (a paired bootstrap on the final held-out split) and `eval/calibrate.py::bootstrap_weight_stability` (500 resamples of the weight-validation split, weights rederived each time) answer those two questions respectively — deliberately not by rerunning the harness at a different random seed, which would conflate this sampling question with unrelated decode/network noise from rescoring every clip.
+
+First real run with both (`reports/2026-09-02.md`, n=500/250/250, up from 400/200/200): spatial's numeric AUC edge over frequency on the final split (0.6694 vs 0.6175) turns out **not to be statistically significant** — 95% CI on the difference is [-0.0412, 0.1535], which includes zero. The weight-stability bootstrap agrees, with wide overlapping p10-p90 ranges for both streams' weights. The near-even split reported above should be read as "these two streams are roughly comparable" rather than as a precise, settled ratio. See `DECISIONS.md`, 2026-09-02.
+
+ROC-curve points (`roc_points`, downsampled to ≤60 per stream) are now captured on every stream too, alongside the reliability-diagram bins (`calibration_bins`) that already existed — both render on the web app's `/accuracy` page.
 
 ## Audio: the harness caught a real inversion bug before it was trusted
 
