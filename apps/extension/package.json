@@ -2,6 +2,7 @@
   "name": "@veriframe/extension",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "VeriFrame Chrome extension (MV3, WXT) -- analyse any image or video on a page in place.",
   "scripts": {
     "dev": "wxt",

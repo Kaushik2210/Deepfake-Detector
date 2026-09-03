@@ -2,6 +2,7 @@
   "name": "@veriframe/ui",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Shared React components between web and extension — scaffolded here, filled in starting Phase 2.",
   "scripts": {
     "build": "echo \"packages/ui not implemented yet\"",

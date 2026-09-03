@@ -1,6 +1,6 @@
 # Licenses
 
-Tracks licensing for every third-party dataset, pretrained model, and detection-relevant dependency, and whether it blocks commercial use. Every entry here was checked against the upstream source before the dependency was wired in.
+VeriFrame's own code is MIT-licensed — see [`LICENSE`](./LICENSE). This file tracks everything *else*: every third-party dataset, pretrained model, and detection-relevant dependency the project uses under its own separate license, and whether it blocks commercial use. Using a permissively-licensed third-party component doesn't relicense it as MIT — it's used under its own terms, listed here. Every entry was checked against the upstream source before the dependency was wired in.
 
 ## In use
 
