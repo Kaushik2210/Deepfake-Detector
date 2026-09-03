@@ -1,5 +1,8 @@
 # VeriFrame
 
+[![CI](https://github.com/Kaushik2210/Deepfake-Detector/actions/workflows/ci.yml/badge.svg)](https://github.com/Kaushik2210/Deepfake-Detector/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 **A synthetic-media detection platform that tells you what it found, how confident it is, and why — never a bare "fake" or "real."**
 
 VeriFrame analyses images and video for signs of AI generation or manipulation and reports a calibrated probability with an explicit uncertainty band, backed by visual evidence. It's built around a simple conviction: a detector that hands you a single word is asking you to trust a black box, and deepfake detectors are wrong often enough — especially on media unlike anything they were trained on — that a black box is the wrong interface for this problem.
@@ -65,6 +68,8 @@ pnpm typecheck && pnpm lint && pnpm test
 
 Copy `.env.example` to `.env` and fill in values before running any service. The inference service has its own Python toolchain — see [`services/inference/README.md`](./services/inference/README.md) for setup, exactly how a score is produced, and the full configuration reference; [`apps/web/README.md`](./apps/web/README.md) covers the web app's data flow and retention model; [`apps/extension/README.md`](./apps/extension/README.md) covers the Chrome extension.
 
+Deploying beyond local dev (Vercel + Railway + Cloudflare R2 + Clerk) is walked through step by step in [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+
 ## Project status
 
 Built in reviewed phases, each stopped and verified before the next begins:
@@ -84,7 +89,7 @@ Full phase definitions in [`CLAUDE.md`](./CLAUDE.md#build-phases).
 
 Every third-party model, dataset, and detection-relevant dependency is checked against its actual upstream terms before it's wired in — not assumed. [`LICENSES.md`](./LICENSES.md) tracks what's in use, and, just as importantly, what was evaluated and **rejected**: an AGPL-licensed face detector, non-commercial-only model weights, and a lip-sync model trained on a BBC-restricted dataset all got turned away here rather than silently shipped.
 
-This repository's own license is not yet finalized.
+VeriFrame's own code is [MIT-licensed](./LICENSE).
 
 ## Legal & ethics
 
