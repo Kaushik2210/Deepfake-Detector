@@ -7,6 +7,8 @@ import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Footer } from "@/components/Footer";
+import { NavLinks } from "@/components/NavLinks";
 
 // Runs before hydration so the correct theme class is present on first
 // paint — without this, the page would flash the light theme for a dark-mode
@@ -50,7 +52,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         This suppresses the warning for attributes on this element only — nested
         content is still checked normally.
       */}
-      <body className="min-h-screen bg-background text-foreground" suppressHydrationWarning>
+      <body
+        className="flex min-h-screen flex-col bg-background text-foreground"
+        suppressHydrationWarning
+      >
         {/* Visible only on keyboard focus, so a screen-reader or keyboard user
             can jump past the repeated nav without a mouse-only affordance. */}
         <a
@@ -62,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <TooltipProvider delayDuration={200}>
           <Providers>
-            <header className="border-b bg-card/60 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+            <header className="sticky top-0 z-40 border-b bg-card/70 shadow-[var(--shadow-xs)] backdrop-blur supports-[backdrop-filter]:bg-card/70">
               <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-4 sm:gap-4 sm:px-6">
                 <Link
                   href="/"
@@ -79,27 +84,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {/* Scrolls within its own row on narrow viewports rather than
                     letting the whole page overflow horizontally — logo and
                     toggle stay put either way. */}
-                <nav
-                  aria-label="Primary"
-                  className="flex min-w-0 flex-1 gap-1 overflow-x-auto text-sm"
-                >
-                  {NAV_LINKS.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className="shrink-0 rounded-md px-3 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </nav>
+                <NavLinks links={NAV_LINKS} />
                 <ThemeToggle />
               </div>
             </header>
 
-            <main id="main" className="mx-auto max-w-4xl px-6 py-8">
+            <main id="main" className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
               {children}
             </main>
+
+            <Footer />
           </Providers>
         </TooltipProvider>
       </body>
