@@ -2,6 +2,14 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-09-03 — `c2pa-python` was shipped without a `LICENSES.md` entry; a pre-deployment audit caught it
+
+Requested a security review and an originality/copyright audit before deployment. The security review (auth/IDOR, injection, deserialization, path traversal, SSRF, secrets) found no High or Medium exploitable issues — two Low/informational notes only: the inference service's unauthenticated `GET /v1/analyze/{job_id}` relies on UUID entropy rather than an ownership check (fine today, would become a real IDOR only if job IDs ever became low-entropy/sequential), and the inference service's CORS wildcards all `chrome-extension://*` origins rather than one published extension ID (already flagged as a Phase 7 TODO in the code itself, and not exploitable today since those endpoints are unauthenticated and stateless regardless of origin).
+
+The originality audit's one real finding: `c2pa-python` (Stream D's C2PA manifest reader, `services/inference/pyproject.toml`) is a shipped, detection-relevant dependency with no `LICENSES.md` entry at all — the only dependency in the table that was apparently never checked against a primary source before being wired in, breaking this project's own stated discipline. Verified directly against the `contentauth/c2pa-python` repository's own `LICENSE-MIT`/`LICENSE-APACHE` files (both present, dual-licensed, MIT OR Apache-2.0, copyright Adobe 2020) rather than trusting the installed package's self-reported metadata alone — matches, no blocker. Entry added to `LICENSES.md`.
+
+Also caught in the same pass: the root `README.md`'s "most recent image run" paragraph still cited the n=400/200/200 numbers after the harness had already been re-run at n=500/250/250 for the 2026-09-02 significance-testing entry below — `DECISIONS.md` and `eval/README.md` had been updated, `README.md` was missed. Fixed to the current numbers plus the significance-test finding.
+
 ## 2026-09-02 — Significance testing and weight-stability bootstrap added; a bigger image run shows the streams' gap isn't significant
 
 Two gaps remained after the validation-split fix above: nothing said whether a measured AUC gap between two streams was a real, reproducible difference or sampling noise, and nothing said whether a given fusion-weight split was a stable property of the two streams or a lucky draw from that particular validation sample. Both are answerable without a third corpus or a re-run at a different seed:
