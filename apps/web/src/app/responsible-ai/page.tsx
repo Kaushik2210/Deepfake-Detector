@@ -99,9 +99,9 @@ export default function ResponsibleAiPage() {
           </li>
           <li>
             Contact{" "}
-            <span className="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">
-              [operator contact email — not yet specified]
-            </span>{" "}
+            <a href="mailto:svkaushik2210@gmail.com" className="text-foreground">
+              svkaushik2210@gmail.com
+            </a>{" "}
             to report suspected misuse of a report or request a review.
           </li>
         </ul>

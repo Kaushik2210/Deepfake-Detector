@@ -15,10 +15,8 @@ export default function TermsPage() {
       <section className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
         <p className="text-sm text-amber-900 dark:text-amber-200">
           This is a product-level draft describing what VeriFrame actually does and does
-          not do. It has not been reviewed by a lawyer, and it does not name a registered
-          legal entity, jurisdiction, or dispute-resolution venue — those are marked below
-          and must be filled in before this covers a real deployment handling real users&rsquo;
-          data.
+          not do. It has not been reviewed by a lawyer — get it reviewed before it covers a
+          real deployment handling real users&rsquo; data.
         </p>
       </section>
 
@@ -140,15 +138,23 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-2">
+        <h2 className="text-lg font-medium">Who operates VeriFrame</h2>
+        <p className="text-muted-foreground">
+          VeriFrame is an individual project operated by Kaushik, not a registered company —
+          there is no separate corporate entity to name here, and this document should not
+          be read to imply one.
+        </p>
+      </section>
+
+      <section className="space-y-2">
         <h2 className="text-lg font-medium">Governing law and contact</h2>
         <p className="text-muted-foreground">
-          <span className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-            [governing law / jurisdiction / dispute-resolution venue — not yet specified]
-          </span>{" "}
-          For questions about these terms, contact{" "}
-          <span className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-            [operator contact email — not yet specified]
-          </span>
+          These terms are governed by the laws of India, and any dispute arising from them is
+          subject to the exclusive jurisdiction of the courts of India. For questions about
+          these terms, contact{" "}
+          <a href="mailto:svkaushik2210@gmail.com" className="underline underline-offset-2">
+            svkaushik2210@gmail.com
+          </a>
           .
         </p>
       </section>
