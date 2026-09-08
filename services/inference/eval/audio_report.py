@@ -89,6 +89,23 @@ def write_audio_report(path: Path, payload: dict) -> None:
         "flags with a confidence penalty, and generators in circulation change "
         "faster than any fixed evaluation set."
     )
+    _report_coverage = coverage.get(report_key, {})
+    _seen = _report_coverage.get("decode_candidates_seen")
+    _fail_rate = _report_coverage.get("decode_failure_rate")
+    if _seen:
+        add(
+            "- **Not comparable to the official ASVspoof2021 DF benchmark protocol.** "
+            f"This run drew {p['samples_per_dataset']} clips from a test partition of "
+            "533,928 trials, uniformly at random; published EER figures for this corpus "
+            "come from the full protocol, which the organisers deliberately balance "
+            "across attack systems and codec conditions. This project's data source has "
+            "no per-trial condition metadata to stratify against, so representativeness "
+            "cannot be verified. Decode-failure rate on the candidates drawn this run: "
+            f"{_fail_rate:.1%} ({_report_coverage.get('decode_failures', 0)}/{_seen}) — "
+            "a nonzero rate here means the scored sample may skew toward whatever "
+            "decodes cleanly, not necessarily the full corpus's difficulty. "
+            "See DECISIONS.md, 2026-09-08."
+        )
     add("")
 
     add("## Protocol")

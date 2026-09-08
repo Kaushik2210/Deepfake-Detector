@@ -108,7 +108,9 @@ def _resolve_spoof_index(names: list[str]) -> int:
     )
 
 
-def _load_asvspoof2019(spec: AudioDatasetSpec, limit: int, seed: int) -> Iterator[AudioSample]:
+def _load_asvspoof2019(
+    spec: AudioDatasetSpec, limit: int, seed: int, stats: dict[str, int] | None = None
+) -> Iterator[AudioSample]:
     """Bisher/ASVspoof_2019_LA: parquet-chunked, streams via `datasets`."""
     from datasets import load_dataset
 
@@ -140,11 +142,17 @@ def _load_asvspoof2019(spec: AudioDatasetSpec, limit: int, seed: int) -> Iterato
             continue
 
         raw_bytes = row["audio"]["bytes"]
+        if stats is not None:
+            stats["candidates_seen"] = stats.get("candidates_seen", 0) + 1
         if not raw_bytes:
+            if stats is not None:
+                stats["decode_failures"] = stats.get("decode_failures", 0) + 1
             continue
         try:
             waveform, sample_rate = decode_audio(raw_bytes)
         except Exception:
+            if stats is not None:
+                stats["decode_failures"] = stats.get("decode_failures", 0) + 1
             continue
 
         emitted[label] += 1
@@ -166,7 +174,9 @@ _ZIP_TARGET_SPLIT = "test"
 _ZIP_LABEL_NAMES: dict[str, Label] = {"real": 0, "fake": 1}
 
 
-def _load_asvspoof2021(spec: AudioDatasetSpec, limit: int, seed: int) -> Iterator[AudioSample]:
+def _load_asvspoof2021(
+    spec: AudioDatasetSpec, limit: int, seed: int, stats: dict[str, int] | None = None
+) -> Iterator[AudioSample]:
     """Bisher/ASVspoof_2021_DF: one 36.7 GB ZIP, read the same way datasets.py
     reads the image corpora's ZIPs -- central directory + individual ranged
     member reads via HfFileSystem, never the whole archive."""
@@ -212,13 +222,19 @@ def _load_asvspoof2021(spec: AudioDatasetSpec, limit: int, seed: int) -> Iterato
                     break
                 if emitted[label] >= per_class:
                     continue
+                if stats is not None:
+                    stats["candidates_seen"] = stats.get("candidates_seen", 0) + 1
                 try:
                     raw_bytes = archive.read(name)
                 except Exception:
+                    if stats is not None:
+                        stats["decode_failures"] = stats.get("decode_failures", 0) + 1
                     continue
                 try:
                     waveform, sample_rate = decode_audio(raw_bytes)
                 except Exception:
+                    if stats is not None:
+                        stats["decode_failures"] = stats.get("decode_failures", 0) + 1
                     continue
 
                 emitted[label] += 1
@@ -238,7 +254,17 @@ _LOADERS = {
 
 
 def load_audio_samples(
-    spec: AudioDatasetSpec, limit: int, seed: int = 0
+    spec: AudioDatasetSpec,
+    limit: int,
+    seed: int = 0,
+    stats: dict[str, int] | None = None,
 ) -> Iterator[AudioSample]:
-    """Yield up to `limit` samples, balanced across bonafide/spoof."""
-    return _LOADERS[spec.key](spec, limit, seed)
+    """Yield up to `limit` samples, balanced across bonafide/spoof.
+
+    `stats`, if given, is filled in with `candidates_seen` and
+    `decode_failures` as loading proceeds -- a high failure rate is evidence
+    the drawn sample may be skewed toward whatever decodes cleanly, which is
+    not necessarily representative of the full corpus's difficulty. See
+    DECISIONS.md, 2026-09-08.
+    """
+    return _LOADERS[spec.key](spec, limit, seed, stats)

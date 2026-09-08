@@ -58,6 +58,8 @@ class AudioDatasetRun:
     spec: AudioDatasetSpec
     samples: list[ScoredAudioSample] = field(default_factory=list)
     seconds: float = 0.0
+    candidates_seen: int = 0
+    decode_failures: int = 0
 
 
 def add_noise(waveform: np.ndarray, snr_db: float, seed: int = 0) -> np.ndarray:
@@ -138,9 +140,10 @@ def run_dataset(
         print(f"  [{spec.key}] resuming, {len(cached)} already scored", flush=True)
 
     reused = 0
+    stats: dict[str, int] = {}
     with cache_file.open("a", encoding="utf-8") as handle:
         for index, sample in enumerate(
-            load_audio_samples(spec, limit=limit, seed=seed), start=1
+            load_audio_samples(spec, limit=limit, seed=seed, stats=stats), start=1
         ):
             scored = cached.get(sample.key)
             if scored is not None:
@@ -171,6 +174,16 @@ def run_dataset(
                 )
 
     run.seconds = time.time() - started
+    run.candidates_seen = stats.get("candidates_seen", 0)
+    run.decode_failures = stats.get("decode_failures", 0)
+    if run.candidates_seen:
+        rate = run.decode_failures / run.candidates_seen
+        print(
+            f"  [{spec.key}] decode failures: {run.decode_failures}/{run.candidates_seen} "
+            f"candidates ({rate:.1%}) -- a high rate here means the drawn sample may skew "
+            "toward whatever decodes cleanly, not necessarily the full corpus's difficulty",
+            flush=True,
+        )
     return run
 
 
@@ -445,6 +458,13 @@ def main() -> int:
                 "validation_scored": len(validation_run.samples),
                 "final_reporting_scored": len(final_run.samples),
                 "seconds": round(report_pool.seconds, 1),
+                "decode_candidates_seen": report_pool.candidates_seen,
+                "decode_failures": report_pool.decode_failures,
+                "decode_failure_rate": (
+                    round(report_pool.decode_failures / report_pool.candidates_seen, 4)
+                    if report_pool.candidates_seen
+                    else None
+                ),
             },
         },
         "in_dataset_metrics": in_dataset_metrics,
