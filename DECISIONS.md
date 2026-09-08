@@ -2,6 +2,15 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-09-08 — Investigated a fallback decoder for the libsndfile FLAC bug; not shipped
+
+Follow-up to the decode-failure finding below. Tried two fallback decoders for the ~48% of ASVspoof2021 DF files `soundfile`/libsndfile rejects:
+
+- **`pyflac`** (Apache-2.0, binds Xiph.org's reference `libFLAC`, itself New BSD -- confirmed against `xiph.org/flac/license.html` directly, not a summary): clean licensing, but **fails on the same files** with `FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH` and `LOST_SYNC`. This changes the diagnosis from "decoder compatibility quirk" to "these specific files have genuine frame-level defects in the bitstream" -- a strict, spec-conformant decoder correctly rejects them.
+- **`av`** (PyAV, bundles FFmpeg): successfully decodes the same files FFmpeg's decoder is known to be more error-tolerant/resynchronising than strict reference decoders, which is presumably why. Not adopted: the official PyPI wheel's bundled FFmpeg build license (GPL vs LGPL, depending on whether x264/x265 are compiled in) could not be confirmed from a primary source in the time available, and the one LGPL-focused fork that existed (`basswood-av`, formerly `pyav` on PyPI) is now archived and tells users to use official PyAV instead. Given this project's standing rule to verify a dependency's license against a primary source before wiring it in (and to reject rather than assume when unclear -- see `LICENSES.md`'s rejected-candidates lists), shipping `av` without that certainty was not an acceptable tradeoff for fixing an eval-transparency issue.
+
+Net effect: the decode-failure rate is now measured and reported (previous entry), but the underlying decode gap is not closed. The audio cross-dataset comparison against published work remains out of scope until either (a) `av`'s bundled-FFmpeg license is confirmed clean for this use via an actual primary source or legal review, or (b) a differently-licensed lenient decoder is found. Left as an open, documented limitation rather than forced shut with an uncertain dependency.
+
 ## 2026-09-08 — Our audio cross-dataset EER is not comparable to published ASVspoof2021 DF numbers, and here is why
 
 Asked to show this project's accuracy "exceeds existing models." Checked the literature before making any such claim (a defensible instinct any such claim should start from, not end with). Two real comparisons came back:
