@@ -60,6 +60,7 @@ class AudioDatasetRun:
     seconds: float = 0.0
     candidates_seen: int = 0
     decode_failures: int = 0
+    ffmpeg_recovered: int = 0
 
 
 def add_noise(waveform: np.ndarray, snr_db: float, seed: int = 0) -> np.ndarray:
@@ -176,12 +177,19 @@ def run_dataset(
     run.seconds = time.time() - started
     run.candidates_seen = stats.get("candidates_seen", 0)
     run.decode_failures = stats.get("decode_failures", 0)
+    run.ffmpeg_recovered = stats.get("ffmpeg_recovered", 0)
     if run.candidates_seen:
         rate = run.decode_failures / run.candidates_seen
         print(
             f"  [{spec.key}] decode failures: {run.decode_failures}/{run.candidates_seen} "
             f"candidates ({rate:.1%}) -- a high rate here means the drawn sample may skew "
-            "toward whatever decodes cleanly, not necessarily the full corpus's difficulty",
+            "toward whatever decodes cleanly, not necessarily the full corpus's difficulty"
+            + (
+                f"; {run.ffmpeg_recovered} additional candidates recovered via the ffmpeg "
+                "fallback and included in scoring"
+                if run.ffmpeg_recovered
+                else ""
+            ),
             flush=True,
         )
     return run
@@ -465,6 +473,7 @@ def main() -> int:
                     if report_pool.candidates_seen
                     else None
                 ),
+                "ffmpeg_recovered": report_pool.ffmpeg_recovered,
             },
         },
         "in_dataset_metrics": in_dataset_metrics,

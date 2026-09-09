@@ -185,7 +185,9 @@ def _load_asvspoof2021(
     from huggingface_hub import HfFileSystem
 
     from app.pipeline.audio_io import decode_audio
+    from eval.audio_decode_fallback import decode_via_ffmpeg, ffmpeg_available
 
+    use_fallback = ffmpeg_available()
     fs = HfFileSystem()
     rng = random.Random(seed)
     per_class = limit // 2
@@ -233,9 +235,19 @@ def _load_asvspoof2021(
                 try:
                     waveform, sample_rate = decode_audio(raw_bytes)
                 except Exception:
+                    recovered = False
+                    if use_fallback:
+                        try:
+                            waveform, sample_rate = decode_via_ffmpeg(raw_bytes)
+                            recovered = True
+                        except Exception:
+                            pass
+                    if not recovered:
+                        if stats is not None:
+                            stats["decode_failures"] = stats.get("decode_failures", 0) + 1
+                        continue
                     if stats is not None:
-                        stats["decode_failures"] = stats.get("decode_failures", 0) + 1
-                    continue
+                        stats["ffmpeg_recovered"] = stats.get("ffmpeg_recovered", 0) + 1
 
                 emitted[label] += 1
                 yield AudioSample(

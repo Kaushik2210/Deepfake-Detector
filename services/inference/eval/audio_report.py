@@ -93,6 +93,7 @@ def write_audio_report(path: Path, payload: dict) -> None:
     _seen = _report_coverage.get("decode_candidates_seen")
     _fail_rate = _report_coverage.get("decode_failure_rate")
     if _seen:
+        _recovered = _report_coverage.get("ffmpeg_recovered", 0)
         add(
             "- **Not comparable to the official ASVspoof2021 DF benchmark protocol.** "
             f"This run drew {p['samples_per_dataset']} clips from a test partition of "
@@ -101,10 +102,19 @@ def write_audio_report(path: Path, payload: dict) -> None:
             "across attack systems and codec conditions. This project's data source has "
             "no per-trial condition metadata to stratify against, so representativeness "
             "cannot be verified. Decode-failure rate on the candidates drawn this run: "
-            f"{_fail_rate:.1%} ({_report_coverage.get('decode_failures', 0)}/{_seen}) — "
-            "a nonzero rate here means the scored sample may skew toward whatever "
-            "decodes cleanly, not necessarily the full corpus's difficulty. "
-            "See DECISIONS.md, 2026-09-08."
+            f"{_fail_rate:.1%} ({_report_coverage.get('decode_failures', 0)}/{_seen})"
+            + (
+                f", after recovering {_recovered} additional candidates via an ffmpeg "
+                "fallback decoder (eval-only, not part of the shipped service) that "
+                "correctly decodes files with genuine bitstream defects a strict decoder "
+                "rejects"
+                if _recovered
+                else " — no ffmpeg fallback was available for this run, so these "
+                "candidates were simply excluded"
+            )
+            + ". A nonzero failure rate means the scored sample may still skew toward "
+            "whatever decodes cleanly among what remains. See DECISIONS.md, 2026-09-08 "
+            "and 2026-09-09."
         )
     add("")
 
