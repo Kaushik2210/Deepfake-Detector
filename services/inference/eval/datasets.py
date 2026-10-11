@@ -143,12 +143,13 @@ def _entries(archive: zipfile.ZipFile, source: ArchiveSource) -> list[tuple[str,
     return out
 
 
-def load_samples(spec: DatasetSpec, limit: int, seed: int = 0) -> Iterator[Sample]:
-    """Yield up to `limit` samples, balanced across the two classes.
-
-    Balance matters: an unbalanced sample would make threshold-based metrics
-    reflect the class ratio that happened to be drawn rather than the detector.
-    """
+def _plan_by_archive(
+    spec: DatasetSpec,
+    limit: int,
+    seed: int,
+    exclude_keys: frozenset[str] = frozenset(),
+) -> dict[str, list[tuple[str, Label]]]:
+    """Choose which members to read, grouped by archive. Reads only central directories."""
     from huggingface_hub import HfFileSystem
 
     fs = HfFileSystem()
@@ -160,9 +161,12 @@ def load_samples(spec: DatasetSpec, limit: int, seed: int = 0) -> Iterator[Sampl
     # than favouring whichever entries appear early in the central directory.
     plan: list[tuple[str, str, Label]] = []
     for source in spec.sources:
+        archive_name = source.path.rsplit("/", 1)[-1]
         with fs.open(source.path, "rb") as handle:
             with zipfile.ZipFile(handle) as archive:
                 for name, label in _entries(archive, source):
+                    if f"{archive_name}::{name}" in exclude_keys:
+                        continue
                     plan.append((source.path, name, label))
 
     rng.shuffle(plan)
@@ -173,6 +177,38 @@ def load_samples(spec: DatasetSpec, limit: int, seed: int = 0) -> Iterator[Sampl
             continue
         emitted[label] += 1
         by_archive.setdefault(archive_path, []).append((name, label))
+
+    return by_archive
+
+
+def selected_keys(spec: DatasetSpec, limit: int, seed: int = 0) -> frozenset[str]:
+    """Sample keys `load_samples(spec, limit, seed)` would yield, without downloading images.
+
+    Lets a training run exclude exactly the images calibration was fitted on.
+    """
+    plan = _plan_by_archive(spec, limit, seed)
+    return frozenset(
+        f"{archive_path.rsplit('/', 1)[-1]}::{name}"
+        for archive_path, wanted in plan.items()
+        for name, _ in wanted
+    )
+
+
+def load_samples(
+    spec: DatasetSpec,
+    limit: int,
+    seed: int = 0,
+    exclude_keys: frozenset[str] = frozenset(),
+) -> Iterator[Sample]:
+    """Yield up to `limit` samples, balanced across the two classes.
+
+    Balance matters: an unbalanced sample would make threshold-based metrics
+    reflect the class ratio that happened to be drawn rather than the detector.
+    """
+    from huggingface_hub import HfFileSystem
+
+    fs = HfFileSystem()
+    by_archive = _plan_by_archive(spec, limit, seed, exclude_keys)
 
     for archive_path, wanted in by_archive.items():
         archive_name = archive_path.rsplit("/", 1)[-1]
