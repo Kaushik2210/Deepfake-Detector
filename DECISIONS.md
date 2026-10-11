@@ -2,6 +2,14 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-10-11 — Image fine-tune scripted for a cloud GPU; no accuracy target set, prediction stated first
+
+Request: raise every modality above 80%. Current measured cross-dataset image AUC is 0.664 (spatial) / 0.575 (frequency); audio AASIST is 0.925. This machine has no GPU, and the image gap is a model-capacity/data problem, not something threshold or weight tuning can close, so `services/inference/training/finetune_spatial.py` fine-tunes the spatial classifier on a Colab/Kaggle GPU instead.
+
+Leakage rules baked into the script: trains only on `deepfakeface` (Apache-2.0); never reads `df40faces` (reporting corpus, CC BY-NC); excludes the exact 2000 calibration images via `selected_keys()` in `eval/datasets.py` so the later temperature fit is not computed on training data; early stopping uses a slice of the training pool. `load_samples` gained an `exclude_keys` parameter and its default behaviour (selection order, seed) is unchanged.
+
+Prediction, stated before measuring: DeepFakeFace is a single manipulation family (InsightFace swaps) while df40faces spans 40, so in-distribution AUC will rise sharply and cross-dataset AUC will rise only modestly. Reaching 0.80 cross-dataset from this training set alone is not expected; if the eval shows less, that is the result and is reported as measured. Stream D, video and the audio second stream are unaffected.
+
 ## 2026-09-09 — Shipped the decode fallback after all, via a locally-invoked ffmpeg, eval-only
 
 The 2026-09-08 entry below rejected `av`/PyAV because its bundled FFmpeg's license (GPL vs LGPL, build-dependent) couldn't be confirmed from a primary source, and the LGPL-focused fork was archived. That objection was specifically about *bundling FFmpeg's libraries into a Python dependency*. It does not apply to a different approach: shelling out to an `ffmpeg` binary already installed on the machine running the eval, as a subprocess, with no bundling and no new Python dependency.
