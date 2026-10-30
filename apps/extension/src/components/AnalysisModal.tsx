@@ -15,16 +15,17 @@ const PANEL_STYLE: React.CSSProperties = {
   left: "50%",
   transform: "translate(-50%, -50%)",
   zIndex: 2147483647,
-  width: 340,
+  width: 380,
   maxWidth: "calc(100vw - 32px)",
   background: "white",
   color: "#0f172a",
-  borderRadius: 12,
-  padding: 20,
+  borderRadius: 16,
+  padding: 24,
+  border: "1px solid #e2e8f0",
   fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   fontSize: 13,
   lineHeight: 1.5,
-  boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+  boxShadow: "0 24px 60px rgba(15,23,42,0.4)",
 };
 
 const BACKDROP_STYLE: React.CSSProperties = {
@@ -32,7 +33,8 @@ const BACKDROP_STYLE: React.CSSProperties = {
   position: "fixed",
   inset: 0,
   zIndex: 2147483646,
-  background: "rgba(15, 23, 42, 0.45)",
+  background: "rgba(15, 23, 42, 0.55)",
+  backdropFilter: "blur(2px)",
 };
 
 function Backdrop({ onClose }: { onClose: () => void }) {
@@ -114,7 +116,7 @@ function ResultView({
           <span
             style={{
               display: "inline-block",
-              padding: "3px 10px",
+              padding: "4px 12px",
               borderRadius: 999,
               background: bandColor(band.id),
               color: "white",
@@ -135,9 +137,38 @@ function ResultView({
           <p style={{ marginTop: 8, fontWeight: 500 }}>{report.conclusion.headline}</p>
         )}
 
+        <div
+          role="img"
+          aria-label={`Likely range ${lo.toFixed(2)} to ${hi.toFixed(2)}`}
+          style={{
+            position: "relative",
+            height: 10,
+            marginTop: 14,
+            borderRadius: 999,
+            background: "linear-gradient(90deg, #15803d33, #65a30d33, #ca8a0433, #ea580c33, #b91c1c33)",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: -2,
+              height: 14,
+              left: `${lo * 100}%`,
+              width: `${Math.max(hi - lo, 0.01) * 100}%`,
+              borderRadius: 999,
+              background: bandColor(band.id),
+              border: "2px solid white",
+              boxShadow: "0 0 0 1px #0f172a40",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
         <p style={{ marginTop: 8, fontSize: 12, color: "#64748b" }}>
-          Likely range {lo.toFixed(2)}&ndash;{hi.toFixed(2)} (point estimate{" "}
-          {report.score.toFixed(2)})
+          Likely range{" "}
+          <strong style={{ color: "#0f172a" }}>
+            {lo.toFixed(2)}&ndash;{hi.toFixed(2)}
+          </strong>{" "}
+          (point estimate {report.score.toFixed(2)})
         </p>
 
         <a
@@ -206,7 +237,7 @@ const primaryButtonStyle: React.CSSProperties = {
   textAlign: "center",
   padding: "8px 14px",
   borderRadius: 8,
-  background: "#0f172a",
+  background: "#1e3a8a",
   color: "white",
   fontWeight: 500,
   cursor: "pointer",
@@ -236,11 +267,11 @@ const closeButtonStyle: React.CSSProperties = {
 
 function bandColor(id: string): string {
   const colors: Record<string, string> = {
-    low: "#3d8015",
-    weak: "#0da365",
-    mixed: "#048aca",
-    strong: "#1665ea",
-    very_strong: "#1c1cb9",
+    low: "#15803d",
+    weak: "#65a30d",
+    mixed: "#ca8a04",
+    strong: "#ea580c",
+    very_strong: "#b91c1c",
   };
   return colors[id] ?? "#64748b";
 }
