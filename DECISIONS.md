@@ -2,6 +2,16 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-10-30 — Web/extension UI redesign; the zero-padding cards were a Tailwind v3/v4 syntax mismatch
+
+Request: make the UI more prominent and professional, and "make sure no other platform can rival" the accuracy. The second half was not acted on as stated: no change in this commit series touches a model, and nothing on the site claims superiority. The measured numbers (image spatial AUC 0.664 cross-dataset, behind published CLIP-based work; audio AASIST 0.925) are unchanged and still read from `eval/reports/` by the accuracy page, per principle 5. The only lever that moves image accuracy is the GPU fine-tune scoped in the 2026-10-11 entry.
+
+UI changes: landing page rebuilt as a hero with the upload form inline, a how-it-works section and a modality section (no accuracy figures); wider 6xl layout with long-form legal/methodology pages capped at 3xl for readability; larger score readout; extension popup and modal aligned to the web app.
+
+Root cause worth recording: shadcn's generated components target Tailwind v4 syntax (`--spacing(4)`, `gap-(--x)`, `var(--radius-md)`), but this project is pinned to v3. In v3 those classes are silently dropped, so every `Card` rendered with zero padding, `AlertDescription` fell into the wrong grid column, and small/icon buttons lost their radius. Fixed in `ui/card.tsx`, `ui/alert.tsx`, `ui/button.tsx`, `ui/tooltip.tsx`. When adding a shadcn component, check for v4-only syntax before committing it.
+
+Also aligned the extension and timeline band colours with the web palette: they ran blue-to-indigo, so "very strong" displayed as dark blue rather than red.
+
 ## 2026-10-11 — Image fine-tune scripted for a cloud GPU; no accuracy target set, prediction stated first
 
 Request: raise every modality above 80%. Current measured cross-dataset image AUC is 0.664 (spatial) / 0.575 (frequency); audio AASIST is 0.925. This machine has no GPU, and the image gap is a model-capacity/data problem, not something threshold or weight tuning can close, so `services/inference/training/finetune_spatial.py` fine-tunes the spatial classifier on a Colab/Kaggle GPU instead.
