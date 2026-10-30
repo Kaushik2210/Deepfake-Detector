@@ -1,11 +1,11 @@
 import { scoreToBand } from "@veriframe/core";
 
 const BAND_DOT: Record<string, string> = {
-  low: "#3d8015",
-  weak: "#0da365",
-  mixed: "#048aca",
-  strong: "#1665ea",
-  very_strong: "#1c1cb9",
+  low: "#15803d",
+  weak: "#65a30d",
+  mixed: "#ca8a04",
+  strong: "#ea580c",
+  very_strong: "#b91c1c",
 };
 
 /**
@@ -88,9 +88,7 @@ export function TimelineChart({
           r={3.5}
           fill={BAND_DOT[scoreToBand(p.score).id] ?? "#64748b"}
         >
-          <title>
-            t={p.t.toFixed(2)}s, score={p.score.toFixed(3)}
-          </title>
+          <title>{`t=${p.t.toFixed(2)}s, score=${p.score.toFixed(3)}`}</title>
         </circle>
       ))}
 
