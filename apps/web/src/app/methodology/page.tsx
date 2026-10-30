@@ -26,7 +26,7 @@ export default async function MethodologyPage() {
   const [report, audioReport] = await Promise.all([latestEvalReport(), latestAudioEvalReport()]);
 
   return (
-    <article className="max-w-none space-y-10">
+    <article className="mx-auto max-w-3xl space-y-10">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Methodology</h1>
         <p className="mt-2 text-muted-foreground">

@@ -102,7 +102,7 @@ export function UploadForm({ ttlHours }: { ttlHours: number }) {
             chooseFile(event.dataTransfer.files?.[0] ?? null);
           }}
           className={cn(
-            "flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed bg-card px-8 py-10 text-center transition-colors",
+            "flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed bg-card px-6 py-12 text-center transition-all hover:shadow-[var(--shadow-sm)]",
             dragActive ? "border-primary bg-accent" : "border-border hover:border-muted-foreground/50",
           )}
         >
@@ -130,7 +130,9 @@ export function UploadForm({ ttlHours }: { ttlHours: number }) {
             </>
           ) : (
             <>
-              <UploadCloud className="size-8 text-muted-foreground" aria-hidden="true" />
+              <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+                <UploadCloud className="size-7" aria-hidden="true" />
+              </span>
               <div>
                 <p className="font-medium">
                   Drag and drop a file, or{" "}
@@ -180,7 +182,7 @@ export function UploadForm({ ttlHours }: { ttlHours: number }) {
         </Alert>
       )}
 
-      <Button type="submit" disabled={!file || !consented || submitting} size="lg" className="w-full">
+      <Button type="submit" disabled={!file || !consented || submitting} size="lg" className="h-12 w-full text-base shadow-[var(--shadow-sm)]">
         {submitting ? "Uploading…" : `Analyse this ${file ? mediaKindLabel(file.type) : "file"}`}
       </Button>
     </form>

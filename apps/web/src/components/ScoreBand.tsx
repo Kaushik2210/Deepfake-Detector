@@ -31,7 +31,7 @@ export function ScoreBand({ score, uncertainty }: ScoreBandProps) {
       <div className="flex flex-wrap items-baseline gap-3">
         <span
           className={cn(
-            "inline-block rounded-md px-3 py-1 text-lg font-semibold text-white",
+            "inline-block rounded-lg px-4 py-1.5 text-xl font-semibold text-white shadow-[var(--shadow-sm)]",
             BAND_COLOR[band.id],
           )}
         >
@@ -42,7 +42,7 @@ export function ScoreBand({ score, uncertainty }: ScoreBandProps) {
 
       <div>
         <div
-          className="relative h-8 w-full overflow-hidden rounded-md border"
+          className="relative h-11 w-full overflow-hidden rounded-lg border shadow-[var(--shadow-xs)]"
           role="img"
           aria-label={`Likely range ${lo.toFixed(2)} to ${hi.toFixed(2)} on a 0 to 1 scale, point estimate ${score.toFixed(3)}`}
         >
@@ -70,13 +70,19 @@ export function ScoreBand({ score, uncertainty }: ScoreBandProps) {
         </div>
       </div>
 
-      <p className="text-sm text-foreground/90">
-        Estimated likelihood of manipulation:{" "}
-        <strong className="font-semibold">
-          {lo.toFixed(2)} – {hi.toFixed(2)}
-        </strong>{" "}
-        <span className="text-muted-foreground">(point estimate {score.toFixed(3)})</span>
-      </p>
+      <div className="flex flex-wrap items-end gap-x-8 gap-y-2 rounded-lg bg-muted/60 px-4 py-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Estimated likelihood of manipulation
+          </p>
+          <p className="font-mono text-3xl font-semibold tracking-tight">
+            {lo.toFixed(2)} – {hi.toFixed(2)}
+          </p>
+        </div>
+        <p className="pb-1 text-sm text-muted-foreground">
+          point estimate {score.toFixed(3)}
+        </p>
+      </div>
     </div>
   );
 }

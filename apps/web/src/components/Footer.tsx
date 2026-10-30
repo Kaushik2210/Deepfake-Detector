@@ -11,7 +11,7 @@ const POLICY_LINKS = [
 export function Footer() {
   return (
     <footer className="mt-16 border-t bg-card/40">
-      <div className="mx-auto max-w-4xl space-y-4 px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-6xl space-y-4 px-4 py-8 sm:px-6">
         <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
           Every VeriFrame result is a signal for human review, not proof, and is not
           admissible as forensic evidence on its own.

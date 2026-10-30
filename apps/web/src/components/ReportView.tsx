@@ -20,7 +20,7 @@ function Section({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {title}
         </CardTitle>
       </CardHeader>

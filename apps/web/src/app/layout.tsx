@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ShieldCheck } from "lucide-react";
 
 import { Providers } from "./providers";
 import "./globals.css";
@@ -68,16 +69,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <TooltipProvider delayDuration={200}>
           <Providers>
             <header className="sticky top-0 z-40 border-b bg-card/70 shadow-[var(--shadow-xs)] backdrop-blur supports-[backdrop-filter]:bg-card/70">
-              <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-4 sm:gap-4 sm:px-6">
+              <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3.5 sm:gap-4 sm:px-6">
                 <Link
                   href="/"
                   className="flex shrink-0 items-center gap-2 text-lg font-semibold tracking-tight"
                 >
                   <span
                     aria-hidden="true"
-                    className="inline-flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
+                    className="inline-flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[var(--shadow-sm)]"
                   >
-                    V
+                    <ShieldCheck className="size-4.5" />
                   </span>
                   <span className="hidden sm:inline">VeriFrame</span>
                 </Link>
@@ -89,7 +90,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </header>
 
-            <main id="main" className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
+            <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
               {children}
             </main>
 
