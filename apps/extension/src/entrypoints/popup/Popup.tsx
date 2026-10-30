@@ -9,11 +9,11 @@ import {
 
 function bandColor(id: string): string {
   const colors: Record<string, string> = {
-    low: "#3d8015",
-    weak: "#0da365",
-    mixed: "#048aca",
-    strong: "#1665ea",
-    very_strong: "#1c1cb9",
+    low: "#15803d",
+    weak: "#65a30d",
+    mixed: "#ca8a04",
+    strong: "#ea580c",
+    very_strong: "#b91c1c",
   };
   return colors[id] ?? "#64748b";
 }
@@ -49,8 +49,30 @@ export function Popup() {
 
   return (
     <div style={{ padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h1 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>VeriFrame</h1>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: "#1e3a8a",
+            color: "white",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+            fontWeight: 700,
+          }}
+        >
+          V
+        </span>
+        <div>
+          <h1 style={{ fontSize: 15, fontWeight: 600, margin: 0, lineHeight: 1.2 }}>VeriFrame</h1>
+          <p style={{ fontSize: 11, color: "#64748b", margin: 0 }}>
+            Advisory signal, not proof
+          </p>
+        </div>
       </div>
 
       {hostname && (
@@ -149,7 +171,17 @@ export function Popup() {
                   {entry.pageTitle || entry.pageUrl}
                 </p>
               </div>
-              <span style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "white",
+                  background: bandColor(entry.band),
+                  borderRadius: 999,
+                  padding: "2px 8px",
+                  flexShrink: 0,
+                }}
+              >
                 {entry.score.toFixed(2)}
               </span>
             </li>
