@@ -21,6 +21,7 @@ Datasets are never written into the repository.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -33,6 +34,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.config import get_settings  # noqa: E402
 from app.pipeline import spatial  # noqa: E402
 from app.pipeline.faces import crop_face, detect_faces  # noqa: E402
 from app.pipeline.frequency import analyze_frequency  # noqa: E402
@@ -102,9 +104,13 @@ def score_sample(sample: Sample, encode_quality: int | None = None) -> ScoredSam
 def _cache_path(spec: DatasetSpec, limit: int, seed: int, encode_quality: int | None) -> Path:
     """Where partial scores for this exact configuration are kept."""
     suffix = "orig" if encode_quality is None else f"q{encode_quality}"
+    # Scores depend on the spatial model, so the cache must too, or swapping
+    # checkpoints would silently reuse the previous model's scores.
+    model_id = get_settings().spatial_model_id
+    model_tag = hashlib.sha256(model_id.encode("utf-8")).hexdigest()[:8]
     cache_dir = Path(__file__).resolve().parent / ".score_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / f"{spec.key}_n{limit}_s{seed}_{suffix}.jsonl"
+    return cache_dir / f"{spec.key}_n{limit}_s{seed}_{suffix}_m{model_tag}.jsonl"
 
 
 def _load_cached(path: Path) -> dict[str, ScoredSample]:
@@ -241,6 +247,16 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=2000, help="samples per dataset")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
+        "--calibration-limit",
+        type=int,
+        default=None,
+        help=(
+            "samples drawn from the calibration corpus (defaults to --limit). Only the "
+            "temperature fit and the in-dataset contrast use it; headline AUC/EER on the "
+            "reporting corpus do not depend on it"
+        ),
+    )
+    parser.add_argument(
         "--calibrate-on", default="deepfakeface", choices=sorted(DATASETS)
     )
     parser.add_argument("--report-on", default="df40faces", choices=sorted(DATASETS))
@@ -278,8 +294,9 @@ def main() -> int:
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     started = datetime.now(UTC)
 
-    print(f"Calibration split: {args.calibrate_on}")
-    calibration_run = run_dataset(DATASETS[args.calibrate_on], args.limit, args.seed)
+    calibration_limit = args.calibration_limit or args.limit
+    print(f"Calibration split: {args.calibrate_on} (n={calibration_limit})")
+    calibration_run = run_dataset(DATASETS[args.calibrate_on], calibration_limit, args.seed)
 
     report_limit = args.report_limit or args.limit
     print(f"Reporting pool:    {args.report_on} (n={report_limit}, split in half)")
