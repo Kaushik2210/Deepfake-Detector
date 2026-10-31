@@ -12,6 +12,20 @@ Training script now takes `--seed` (training randomness only; the sampled image 
 
 Predictions, stated before running: (1) spread across seeds is small, within about 0.02 AUC; (2) without augmentation, cross-dataset AUC at JPEG q30 falls by at least 0.10 versus the augmented model, while clean-image AUC changes little; (3) AUC on Deepfake-Eval-2024 images is clearly lower than 0.85, because those are in-the-wild, uncropped and from newer generators. If (3) turns out wrong the cropped-face concern weakens; if it holds, that is a limitation to state in the paper, not hide.
 
+Result (Kaggle T4 x2, ~5 h; reports `reports/2026-10-31-finetune-{seed1,seed2,noaug0}`; same final held-out DF40 half, calibration fitted on 400 images instead of 2000 to cut cost, so ECE is not directly comparable to the 2026-10-30 run):
+
+| Run | AUC | 95% CI | EER | AUC at JPEG q30 |
+|---|---|---|---|---|
+| seed 0 (original) | 0.8533 | 0.829–0.877 | 0.226 | 0.846 |
+| seed 1 | 0.8471 | 0.823–0.871 | 0.226 | 0.854 |
+| seed 2 | 0.8349 | 0.810–0.858 | 0.254 | 0.836 |
+| no augmentation | 0.8507 | 0.827–0.877 | 0.212 | 0.845 |
+
+- Prediction (1) held: the three augmented seeds span 0.018 AUC. The 0.664 → ~0.85 gain reproduces and is not a lucky seed.
+- Prediction (2) **missed**: without augmentation AUC at q30 is 0.845 against 0.851 clean, a drop of about 0.006, not 0.10. Flip/rescale/JPEG augmentation did not buy compression robustness here; overall AUC is also unchanged within seed noise. Likely both corpora are already compressed, but that is a guess and was not tested. Only q30 was measured in these runs.
+- Prediction (3) is still pending Deepfake-Eval-2024 access.
+- The shipped service is unchanged and still uses the base model.
+
 ## 2026-10-11 — Image fine-tune scripted for a cloud GPU; no accuracy target set, prediction stated first
 
 Request: raise every modality above 80%. Current measured cross-dataset image AUC is 0.664 (spatial) / 0.575 (frequency); audio AASIST is 0.925. This machine has no GPU, and the image gap is a model-capacity/data problem, not something threshold or weight tuning can close, so `services/inference/training/finetune_spatial.py` fine-tunes the spatial classifier on a Colab/Kaggle GPU instead.
