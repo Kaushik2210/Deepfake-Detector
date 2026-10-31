@@ -2,6 +2,16 @@
 
 Running log of architectural choices and their rationale. Newest first.
 
+## 2026-10-31 — Journal-grade image evidence: multi-seed + ablation plan, and why no second training set yet
+
+Goal: turn the single-run 0.8533 (`reports/2026-10-30.md`) into something a journal reviewer can accept. One run, one training corpus and one seed is not enough.
+
+Dataset search (Hugging Face Hub, 2026-10-31): nearly every community "deepfake" image set lists no licence, which this project treats as no rights granted, so none were used as training data. `rshaojimmy/Seq-DeepFake` tags Apache-2.0 but its underlying face sources were not verified, so it is also excluded for now. The one well-licensed, high-value set is `nuriachandra/Deepfake-Eval-2024` (CC-BY-SA-4.0; 1,975 in-the-wild images plus audio and video, 2024 sources). It is gated behind terms that only the account holder can accept, and it is share-alike, so it would be used as an additional **test** set, never as training data.
+
+Training script now takes `--seed` (training randomness only; the sampled image pool stays fixed) and `--no-augment` (ablation).
+
+Predictions, stated before running: (1) spread across seeds is small, within about 0.02 AUC; (2) without augmentation, cross-dataset AUC at JPEG q30 falls by at least 0.10 versus the augmented model, while clean-image AUC changes little; (3) AUC on Deepfake-Eval-2024 images is clearly lower than 0.85, because those are in-the-wild, uncropped and from newer generators. If (3) turns out wrong the cropped-face concern weakens; if it holds, that is a limitation to state in the paper, not hide.
+
 ## 2026-10-11 — Image fine-tune scripted for a cloud GPU; no accuracy target set, prediction stated first
 
 Request: raise every modality above 80%. Current measured cross-dataset image AUC is 0.664 (spatial) / 0.575 (frequency); audio AASIST is 0.925. This machine has no GPU, and the image gap is a model-capacity/data problem, not something threshold or weight tuning can close, so `services/inference/training/finetune_spatial.py` fine-tunes the spatial classifier on a Colab/Kaggle GPU instead.

@@ -57,13 +57,13 @@ def _augment(image: Image.Image, rng: random.Random) -> Image.Image:
 
 
 class _Faces(Dataset):
-    def __init__(self, items, processor, positive_index, negative_index, augment):
+    def __init__(self, items, processor, positive_index, negative_index, augment, seed=0):
         self.items = items
         self.processor = processor
         self.positive_index = positive_index
         self.negative_index = negative_index
         self.augment = augment
-        self.rng = random.Random(0)
+        self.rng = random.Random(seed)
 
     def __len__(self) -> int:
         return len(self.items)
@@ -103,7 +103,11 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=2e-5)
+    parser.add_argument("--seed", type=int, default=0, help="training seed; the sampled image pool is fixed")
+    parser.add_argument("--no-augment", action="store_true", help="ablation: disable flip/rescale/JPEG augmentation")
     args = parser.parse_args()
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
 
     settings = get_settings()
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -129,7 +133,7 @@ def main() -> None:
     print(f"train={len(train_items)} val={len(val_items)}", flush=True)
 
     train_loader = DataLoader(
-        _Faces(train_items, processor, positive, negative, augment=True),
+        _Faces(train_items, processor, positive, negative, augment=not args.no_augment, seed=args.seed),
         batch_size=args.batch_size, shuffle=True, num_workers=2,
     )
     val_loader = DataLoader(
@@ -179,6 +183,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    np.random.seed(0)
-    torch.manual_seed(0)
     main()
